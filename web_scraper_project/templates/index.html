@@ -1,0 +1,58 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Web Scraper</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        margin: 40px;
+      }
+      form {
+        margin-bottom: 20px;
+      }
+      input[type="text"] {
+        width: 60%;
+        padding: 8px;
+        font-size: 16px;
+      }
+      button {
+        padding: 8px 16px;
+        font-size: 16px;
+        cursor: pointer;
+      }
+      ul {
+        text-align: left;
+        display: inline-block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Simple Web Scraper</h1>
+
+    <form method="POST">
+      <input
+        type="text"
+        name="url"
+        placeholder="Enter URL (e.g., https://example.com)"
+        required
+      />
+      <button type="submit">Scrape</button>
+    </form>
+
+    {% if data %} {% if "error" in data %}
+    <p style="color: red">Error: {{ data.error }}</p>
+    {% else %}
+    <h2>Title: {{ data.title }}</h2>
+    <h3>Links Found:</h3>
+    <ul>
+      {% for link in data.links %}
+      <li><a href="{{ link }}" target="_blank">{{ link }}</a></li>
+      {% endfor %}
+    </ul>
+    {% endif %} {% endif %}
+  </body>
+</html>
