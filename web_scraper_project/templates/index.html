@@ -1,10 +1,11 @@
 <!-- templates/index.html -->
+<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Web Scraper</title>
+    <title>Navbar Detector</title>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -39,7 +40,7 @@
     </style>
   </head>
   <body>
-    <h1>Website Directory Scraper</h1>
+    <h1>Navbar Detector</h1>
 
     <form method="POST">
       <input
@@ -48,28 +49,10 @@
         placeholder="Enter URL (e.g., https://example.com)"
         required
       />
-      <button type="submit">Scrape</button>
+      <button type="submit">Detect Navbar</button>
     </form>
 
-    {% if data %} {% if "error" in data %}
-    <p style="color: red">Error: {{ data.error }}</p>
-    {% else %}
-    <h2>Title: {{ data.title }}</h2>
-
-    <div class="section">
-      <h3>Website Directory</h3>
-      {% macro render_tree(tree) %}
-      <ul>
-        {% for key, value in tree.items() %}
-        <li>
-          <strong>{{ key }}</strong>
-          {% if value %} {{ render_tree(value) }} {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
-      {% endmacro %} {{ render_tree(data.tree) }}
-    </div>
-
+    {% if data %}
     <div class="section">
       <h3>Navbar Detection</h3>
       {% if data.navbar_detected %}
@@ -83,14 +66,27 @@
       <h3>Navbar Links</h3>
       {% if data.navbar_links %}
       <ul>
-        {% for link in data.navbar_links %}
-        <li><a href="{{ link }}" target="_blank">{{ link }}</a></li>
+        {% for name, link in data.navbar_links %}
+        <li><a href="{{ link }}" target="_blank">{{ name }}</a></li>
         {% endfor %}
       </ul>
       {% else %}
       <p>No navbar links found.</p>
       {% endif %}
     </div>
-    {% endif %} {% endif %}
+
+    <div class="section">
+      <h3>Pages</h3>
+      {% if data.navbar_links %}
+      <ul>
+        {% for name, _ in data.navbar_links %}
+        <li>{{ name }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p>No pages found.</p>
+      {% endif %}
+    </div>
+    {% endif %}
   </body>
 </html>
