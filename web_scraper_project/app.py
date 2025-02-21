@@ -1,10 +1,22 @@
 # app.py
+import logging
 from flask import Flask, render_template, request
 from scraper import detect_navbar
-import logging
 
-# ✅ Set up logging
-logging.basicConfig(format="%(asctime)s - [%(levelname)s] - %(message)s", level=logging.DEBUG)
+# ✅ Custom Formatter to Truncate Logs (limits log messages to 100 characters)
+class TruncatedFormatter(logging.Formatter):
+    def format(self, record):
+        max_length = 100  # Set max length for logs
+        original_message = super().format(record)
+        if len(original_message) > max_length:
+            return original_message[:max_length] + "..."  # Truncate and add "..."
+        return original_message
+
+# ✅ Set up logging with truncated messages
+formatter = TruncatedFormatter("%(asctime)s - [%(levelname)s] - %(message)s")
+handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+logging.basicConfig(level=logging.DEBUG, handlers=[handler])
 
 app = Flask(__name__)
 

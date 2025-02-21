@@ -1,9 +1,7 @@
 # scraper.py
-import cv2
-import numpy as np
 import logging
 import os
-import re
+import time
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
@@ -14,91 +12,80 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 
 # ✅ Set up logging
-logging.basicConfig(format="%(asctime)s - [%(levelname)s] - %(message)s", level=logging.DEBUG)
+formatter = logging.Formatter("%(asctime)s - [%(levelname)s] - %(message)s")
+handler = logging.StreamHandler()
+handler.setFormatter(formatter)
+logging.basicConfig(level=logging.INFO, handlers=[handler])
 
-# ✅ Comprehensive list of navbar-related class and ID names (including rare cases)
-NAVBAR_KEYWORDS = [
-    "menu", "navbar", "nav", "topbar", "header", "main-menu",
-    "navigation", "site-menu", "mobile-menu", "sidebar", "menubar",
-    "wsite-menu-default", "wsite-nav", "nav-wrapper", "nav-bar", "nav-links",
-    "menu-wrapper", "menu-list", "nav-container", "main-navigation",
-    "header-nav", "top-menu", "side-menu", "bottom-menu", "menu-items"
-]
+
+def extract_links(driver):
+    """Extract all visible links from the page."""
+    logging.info("🔍 Extracting links from the page source...")
+    
+    soup = BeautifulSoup(driver.page_source, "html.parser")
+    links = {}
+
+    # ✅ Avoid adding empty or duplicate links
+    for a in soup.find_all("a", href=True):
+        link_text = a.get_text(strip=True)
+        if link_text and link_text not in links:
+            links[link_text] = urljoin(driver.current_url, a["href"])
+
+    logging.info(f"✅ Extracted {len(links)} links from the page.")
+    return links
+
 
 def detect_navbar(url):
-    """Detect navigation bars visually using OpenCV and extract links with Selenium."""
+    """Detects navbar links efficiently without unnecessary repeated requests."""
     logging.info(f"🔍 Starting Navbar Detection for: {url}")
 
     try:
         # ✅ Configure Selenium WebDriver (headless mode)
         options = Options()
-        options.headless = True  
-        service = Service(log_path=os.devnull)  # Suppress logs
+        options.headless = True
+        service = Service(log_path=os.devnull)
         driver = webdriver.Firefox(service=service, options=options)
-        driver.get(url)
+        logging.info("✅ WebDriver initialized successfully.")
 
-        # ✅ Wait for navbar elements to load
+        # ✅ Load page ONCE
+        logging.info(f"🌍 Loading URL: {url}")
+        driver.get(url)
+        WebDriverWait(driver, 10).until(lambda d: d.execute_script("return document.readyState") == "complete")
+        logging.info("✅ Page loaded successfully.")
+
+        # ✅ Wait for navbar elements (ONLY ONCE)
         try:
-            WebDriverWait(driver, 5).until(
-                EC.presence_of_element_located((By.CSS_SELECTOR, "nav, header, div"))
-            )
+            WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, "nav, header, div")))
             logging.info("✅ Navbar elements detected in DOM.")
         except Exception:
-            logging.warning("⚠️ Navbar elements not found in initial page load.")
+            logging.warning("⚠️ Navbar elements not found. Exiting early.")
+            driver.quit()
+            return {"error": "Navbar not detected."}  # ✅ Stop execution
 
-        # ✅ Take screenshot
-        screenshot_path = "screenshot.png"
-        driver.save_screenshot(screenshot_path)
+        # ✅ Expand dropdowns (ONLY IF THEY EXIST)
+        dropdown_buttons = driver.find_elements(By.CSS_SELECTOR, "button, .dropdown-toggle, a[aria-haspopup='true']")
+        if dropdown_buttons:
+            logging.info(f"🔽 Found {len(dropdown_buttons)} dropdown elements.")
+            for button in dropdown_buttons:
+                if button.is_displayed() and button.is_enabled():
+                    try:
+                        driver.execute_script(
+                            "arguments[0].dispatchEvent(new Event('mouseenter', { bubbles: true }));", button
+                        )
+                        time.sleep(0.5)  # ✅ Small delay for UI updates
+                        logging.info(f"✅ Hovered over dropdown: {button.text}")
+                    except Exception:
+                        logging.warning(f"⚠️ Could not hover dropdown: {button.text}")
 
-        # ✅ Extract only relevant navbar links
-        soup = BeautifulSoup(driver.page_source, "html.parser")
-        driver.quit()  # Close Selenium
+        # ✅ Extract links (ONLY ONCE)
+        all_links = extract_links(driver)
 
-        navbar_links = []
-        navbar_containers = []
+        # ✅ CLOSE SELENIUM IMMEDIATELY AFTER
+        driver.quit()
+        logging.info("✅ WebDriver session closed.")
 
-        # ✅ Search for <nav> and <header> elements
-        navbar_containers.extend(soup.find_all(["nav", "header"]))
-
-        # ✅ Search for <div> elements with relevant class or id names using regex
-        for div in soup.find_all("div"):
-            class_names = " ".join(div.get("class", [])).lower()
-            id_name = div.get("id", "").lower()
-
-            # ✅ Match class/id if it contains variations of "nav" or "menu"
-            if any(re.search(rf"\b{keyword}\b", class_names) or re.search(rf"\b{keyword}\b", id_name) for keyword in NAVBAR_KEYWORDS):
-                navbar_containers.append(div)
-
-        # ✅ Extract links, handling nested spans properly
-        for container in navbar_containers:
-            for a_tag in container.find_all("a", href=True):
-                full_url = urljoin(url, a_tag['href'])
-                
-                # ✅ Extract inner text, ignoring spans with `aria-hidden="true"`
-                link_text = " ".join([t.strip() for t in a_tag.find_all(text=True) if not a_tag.find_parent(attrs={"aria-hidden": "true"})])
-                
-                if link_text:  # Only store if text exists
-                    navbar_links.append((link_text, full_url))
-
-        navbar_links = list(set(navbar_links))  # Remove duplicates
-
-        # ✅ Use OpenCV to detect navbar structure visually
-        image = cv2.imread(screenshot_path, cv2.IMREAD_GRAYSCALE)
-        edges = cv2.Canny(image, 50, 150)
-        lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=50, minLineLength=100, maxLineGap=10)
-
-        navbar_detected = lines is not None  # If OpenCV detects horizontal structures
-
-        if navbar_detected:
-            logging.info(f"✅ Navbar detected visually. Found {len(navbar_links)} links.")
-            logging.info(f"🔗 Extracted Navbar Links: {navbar_links}")
-        else:
-            logging.warning("⚠️ No navbar detected visually.")
-
-        return {
-            "navbar_detected": navbar_detected,
-            "navbar_links": navbar_links
-        }
+        logging.info(f"🔗 Found {len(all_links)} total links after dropdown expansion.")
+        return {"navbar_links": [{"name": name, "url": url} for name, url in all_links.items()]}
 
     except Exception as e:
         logging.error(f"❌ Error during Navbar Detection: {e}")
