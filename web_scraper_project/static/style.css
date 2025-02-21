@@ -1,8 +1,8 @@
 /* static/style.css */
-/* sci-fi glassy UI */
+/* Sci-fi glassy UI */
 body {
   font-family: "Arial", sans-serif;
-  background: #1e293b;
+  background: #0f172a;
   color: #ffffff;
   text-align: center;
   margin: 40px;
@@ -10,6 +10,8 @@ body {
 
 form {
   margin-bottom: 20px;
+  width: min(100%, 600px);
+  margin: 0 auto;
 }
 
 input[type="text"] {
@@ -17,7 +19,7 @@ input[type="text"] {
   padding: 10px;
   font-size: 16px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.1);
+  background: #2e3d55;
   backdrop-filter: blur(10px);
   color: #ffffff;
   border-radius: 5px;
@@ -54,18 +56,21 @@ ul.nested-menu {
   padding-left: 0;
 }
 
-ul.nested-menu li {
-  padding: 5px 0;
+/* ✅ Dynamic Indentation */
+.depth-0 {
+  padding-left: 0px;
 }
-
-ul.nested-menu ul {
-  margin-left: 32px; /* Indent child lists */
-  padding-left: 0;
-  border-left: 2px solid rgba(255, 255, 255, 0.3);
+.depth-1 {
+  padding-left: 32px;
 }
-
-li {
-  margin-bottom: 5px;
+.depth-2 {
+  padding-left: 64px;
+}
+.depth-3 {
+  padding-left: 96px;
+}
+.depth-4 {
+  padding-left: 128px;
 }
 
 a {
@@ -88,9 +93,4 @@ a:hover {
 
 h1 {
   font-size: 2em;
-  text-shadow: 0px 0px 10px rgba(255, 255, 255, 0.8);
-}
-
-.nested-menu li {
-  padding: 5px 0;
 }

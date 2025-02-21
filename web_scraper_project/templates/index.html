@@ -4,11 +4,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Navbar Detector</title>
+    <title>Scrape Website Links</title>
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
-    <h1>Navbar Detector</h1>
+    <h1>Scrape Website Links</h1>
 
     <form method="POST">
       <input
@@ -17,35 +17,26 @@
         placeholder="Enter URL (e.g., https://example.com)"
         required
       />
-      <button type="submit">Detect Navbar</button>
+      <button type="submit">Scrape</button>
     </form>
 
     {% if data %}
     <div class="section">
-      <h3>Navbar Detection</h3>
-      {% if data.navbar_detected %}
-      <p class="success">✅ Navbar was detected visually on this site.</p>
-      {% else %}
-      <p class="error">❌ No navbar was detected visually.</p>
-      {% endif %}
-    </div>
-
-    <div class="section">
-      <h3>Navbar Links</h3>
+      <h3>Website Links</h3>
       {% if data.navbar_links %}
       <ul class="nested-menu">
         {% for link in data.navbar_links %}
-        <li>
+        <li class="depth-{{ link.depth }}">
           <a href="{{ link.url }}" target="_blank">{{ link.name }}</a>
           {% if link.children %}
           <ul>
             {% for sublink in link.children %}
-            <li>
+            <li class="depth-{{ sublink.depth }}">
               <a href="{{ sublink.url }}" target="_blank">{{ sublink.name }}</a>
               {% if sublink.children %}
               <ul>
                 {% for subsub in sublink.children %}
-                <li>
+                <li class="depth-{{ subsub.depth }}">
                   <a href="{{ subsub.url }}" target="_blank"
                     >{{ subsub.name }}</a
                   >
@@ -61,7 +52,7 @@
         {% endfor %}
       </ul>
       {% else %}
-      <p>No navbar links found.</p>
+      <p>No website links found.</p>
       {% endif %}
     </div>
     {% endif %}
