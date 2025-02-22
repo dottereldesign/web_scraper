@@ -62,7 +62,7 @@ The application will start on `http://127.0.0.1:5000/`
 
 ## Project Structure
 
-```
+```sh
 web_scraper_project/
 │── scraper/
 │   ├── actions.py    # Handles interaction with dropdowns
