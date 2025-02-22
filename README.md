@@ -55,7 +55,7 @@ pip install -r requirements.txt
 ### 4. Run the Application
 
 ```sh
-flask run
+FLASK_DEBUG=1 flask run
 ```
 
 The application will start on `http://127.0.0.1:5000/`
