@@ -1,10 +1,10 @@
 # app.py
 import logging
+import sys
 from flask import Flask, render_template, request, redirect, url_for, session
 from scraper.scraper import detect_navbar
 
-
-# ✅ Custom Formatter to Truncate Logs (limits log messages to 100 characters)
+# ✅ Truncated Formatter to Limit Log Length
 class TruncatedFormatter(logging.Formatter):
     def format(self, record):
         max_length = 100  # Set max length for logs
@@ -13,14 +13,25 @@ class TruncatedFormatter(logging.Formatter):
             return original_message[:max_length] + "..."  # Truncate and add "..."
         return original_message
 
-# ✅ Set up logging with truncated messages
+# ✅ Remove existing handlers (prevents duplicate logs)
+for handler in logging.root.handlers[:]:
+    logging.root.removeHandler(handler)
+
+# ✅ Setup global logging with TruncatedFormatter
 formatter = TruncatedFormatter("%(asctime)s - [%(levelname)s] - %(message)s")
-handler = logging.StreamHandler()
+handler = logging.StreamHandler(sys.stdout)
 handler.setFormatter(formatter)
-logging.basicConfig(level=logging.DEBUG, handlers=[handler])
+
+# ✅ Apply to root logger
+logging.basicConfig(level=logging.INFO, handlers=[handler])  # Set default to INFO
+
+# ✅ Suppress DEBUG logs from third-party libraries
+logging.getLogger("selenium").setLevel(logging.WARNING)  # Suppress Selenium debug logs
+logging.getLogger("urllib3").setLevel(logging.WARNING)  # Suppress urllib3 debug logs
+logging.getLogger("werkzeug").setLevel(logging.WARNING)  # Suppress Flask server debug logs
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key"  # ✅ Required for using session
+app.secret_key = "your_secret_key"
 
 @app.route("/", methods=["GET", "POST"])
 def index():
