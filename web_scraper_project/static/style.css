@@ -1,5 +1,11 @@
 /* static/style.css */
-/* Sci-fi glassy UI */
+* {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
 body {
   font-family: "Arial", sans-serif;
   background: #0f172a;
@@ -9,54 +15,61 @@ body {
 }
 
 form {
-  margin-bottom: 20px;
-  width: min(100%, 600px);
+  margin-bottom: 32px;
+  width: min(100%, 400px);
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  background-color: #1e293b;
+  padding: 32px;
+  border-radius: 16px;
 }
 
 input[type="text"] {
-  width: 60%;
-  padding: 10px;
+  padding: 8px;
   font-size: 16px;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: #2e3d55;
-  backdrop-filter: blur(10px);
+  background: #0f172a;
   color: #ffffff;
   border-radius: 5px;
 }
 
 button {
-  padding: 10px 16px;
-  font-size: 16px;
+  padding: 8px 16px;
+  font-size: 14px;
   cursor: pointer;
   border: none;
-  background: rgba(255, 255, 255, 0.2);
-  color: #ffffff;
+  background: #0ea5e9;
+  color: #000000;
   border-radius: 5px;
   transition: 0.3s;
 }
 
 button:hover {
-  background: rgba(255, 255, 255, 0.4);
+  background: #38bdf8;
+}
+
+.grid-container {
+  display: flex;
+  justify-content: space-between;
+  width: 80%;
+  margin: 0 auto;
 }
 
 .section {
-  margin: 20px auto;
-  width: 60%;
-  text-align: left;
-  padding: 20px;
+  width: 45%;
   background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  padding: 20px;
   border-radius: 10px;
   box-shadow: 0 4px 10px rgba(255, 255, 255, 0.1);
 }
 
-ul.nested-menu {
+ul {
   list-style-type: none;
   padding-left: 0;
 }
 
-/* ✅ Dynamic Indentation */
 .depth-0 {
   padding-left: 0px;
 }
@@ -69,9 +82,6 @@ ul.nested-menu {
 .depth-3 {
   padding-left: 96px;
 }
-.depth-4 {
-  padding-left: 128px;
-}
 
 a {
   color: #38bdf8;
@@ -83,14 +93,24 @@ a:hover {
   color: #facc15;
 }
 
-.success {
-  color: #4ade80;
+/* ✅ Hover URL Display */
+.hover-url {
+  margin-top: 20px;
+  font-size: 1.2em;
+  background: #1e293b;
+  padding: 10px;
+  border-radius: 8px;
+  display: inline-block;
+  box-shadow: 0 4px 10px rgba(255, 255, 255, 0.1);
 }
 
-.error {
-  color: #f87171;
-}
-
-h1 {
-  font-size: 2em;
+.text-content {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 16px;
+  border-radius: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  color: #e2e8f0;
+  font-size: 14px;
+  line-height: 1.6;
 }

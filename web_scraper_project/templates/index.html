@@ -8,53 +8,97 @@
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
-    <h1>Scrape Website Links</h1>
-
     <form method="POST">
+      <h1>Scrape Website Links</h1>
       <input
         type="text"
         name="url"
-        placeholder="Enter URL (e.g., https://example.com)"
+        placeholder="Enter URL (e.g., example.com)"
         required
       />
       <button type="submit">Scrape</button>
     </form>
 
     {% if data %}
+    <div class="grid-container">
+      <!-- ✅ Website Links -->
+      <div class="section">
+        <h3>Website Links</h3>
+        {% if data.navbar_links %}
+        <ul class="nested-menu">
+          {% for link in data.navbar_links %}
+          <li class="depth-{{ link.depth }}">
+            <a
+              href="{{ link.url }}"
+              target="_blank"
+              class="link-item"
+              data-url="{{ link.url }}"
+            >
+              {{ link.name }}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>No website links found.</p>
+        {% endif %}
+      </div>
+
+      <!-- ✅ File Links -->
+      <div class="section">
+        <h3>File Downloads</h3>
+        {% if data.file_links %}
+        <ul>
+          {% for file in data.file_links %}
+          <li>
+            <a
+              href="{{ file.url }}"
+              target="_blank"
+              class="link-item"
+              data-url="{{ file.url }}"
+            >
+              📄 {{ file.name }}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>No file links found.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ✅ Display Hovered Link URL -->
+    <div class="hover-url">
+      <p>🔗 <span id="hovered-url">Hover over a link to see its URL.</span></p>
+    </div>
+
+    <!-- ✅ Add a new section for the extracted text -->
     <div class="section">
-      <h3>Website Links</h3>
-      {% if data.navbar_links %}
-      <ul class="nested-menu">
-        {% for link in data.navbar_links %}
-        <li class="depth-{{ link.depth }}">
-          <a href="{{ link.url }}" target="_blank">{{ link.name }}</a>
-          {% if link.children %}
-          <ul>
-            {% for sublink in link.children %}
-            <li class="depth-{{ sublink.depth }}">
-              <a href="{{ sublink.url }}" target="_blank">{{ sublink.name }}</a>
-              {% if sublink.children %}
-              <ul>
-                {% for subsub in sublink.children %}
-                <li class="depth-{{ subsub.depth }}">
-                  <a href="{{ subsub.url }}" target="_blank"
-                    >{{ subsub.name }}</a
-                  >
-                </li>
-                {% endfor %}
-              </ul>
-              {% endif %}
-            </li>
-            {% endfor %}
-          </ul>
-          {% endif %}
-        </li>
-        {% endfor %}
-      </ul>
+      <h3>Extracted Page Text</h3>
+      {% if data.page_text %}
+      <div class="text-content">
+        <p>{{ data.page_text | safe }}</p>
+      </div>
       {% else %}
-      <p>No website links found.</p>
+      <p>No text found on the page.</p>
       {% endif %}
     </div>
+
     {% endif %}
+
+    <script>
+      // ✅ JavaScript to show URL when hovering over links
+      document.querySelectorAll(".link-item").forEach((link) => {
+        link.addEventListener("mouseover", function () {
+          document.getElementById("hovered-url").textContent =
+            this.getAttribute("data-url");
+        });
+        link.addEventListener("mouseout", function () {
+          document.getElementById("hovered-url").textContent =
+            "Hover over a link to see its URL.";
+        });
+      });
+    </script>
   </body>
 </html>

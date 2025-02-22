@@ -1,7 +1,8 @@
 # app.py
 import logging
-from flask import Flask, render_template, request
-from scraper import detect_navbar
+from flask import Flask, render_template, request, redirect, url_for, session
+from scraper.scraper import detect_navbar
+
 
 # ✅ Custom Formatter to Truncate Logs (limits log messages to 100 characters)
 class TruncatedFormatter(logging.Formatter):
@@ -19,15 +20,19 @@ handler.setFormatter(formatter)
 logging.basicConfig(level=logging.DEBUG, handlers=[handler])
 
 app = Flask(__name__)
+app.secret_key = "your_secret_key"  # ✅ Required for using session
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    data = None
     if request.method == "POST":
         url = request.form.get("url")
         logging.info(f"📥 Received navbar detection request for: {url}")
         data = detect_navbar(url)
 
+        session["navbar_data"] = data  # ✅ Store data in session
+        return redirect(url_for("index"))
+
+    data = session.pop("navbar_data", None)  # ✅ Retrieve stored data
     return render_template("index.html", data=data)
 
 if __name__ == "__main__":
