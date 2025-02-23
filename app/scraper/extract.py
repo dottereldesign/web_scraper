@@ -1,16 +1,20 @@
 # scraper/extract.py
 import logging
 import time
-import os
-from urllib.parse import urlparse
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 from .utils import format_url
+from .storage import (
+    get_storage_path,
+    save_extracted_text,
+)  # ✅ Import storage functions
+import re  # ✅ Import regex module
 
 # ✅ Store the first clean extraction
 stored_text = None
 last_extraction_time = 0
 last_url = ""
+
 BASE_DIR = "extracted_data"  # ✅ Base directory where all extracted files will be saved
 
 
@@ -112,6 +116,7 @@ def parse_page_text(html):
 
         text_list = []
         seen_paragraphs = set()  # ✅ Track paragraphs to remove duplicates
+        prev_line = ""  # ✅ Track previous line for funder duplicates
 
         for el in text_elements:
             extracted_text = el.get_text(separator=" ", strip=True)
@@ -119,6 +124,28 @@ def parse_page_text(html):
             # ✅ Ignore empty or very short text (likely noise)
             if not extracted_text or len(extracted_text) < 5:
                 continue
+
+            # ✅ Skip file-related metadata
+            if any(
+                keyword in extracted_text.lower()
+                for keyword in [
+                    "file size:",
+                    "file type:",
+                    "download file",
+                    "pdf",
+                ]
+            ):
+                continue
+
+            # ✅ Remove lines that are just a number followed by "kb"
+            if re.match(r"^\d+\s*kb$", extracted_text.lower()):
+                logging.info(f"🚀 Skipping file size reference: {extracted_text}")
+                continue
+
+            # ✅ Remove duplicate funders
+            if extracted_text == prev_line:
+                continue
+            prev_line = extracted_text
 
             # ✅ Normalize case & spacing for duplicate detection
             normalized_text = " ".join(extracted_text.split()).lower()
@@ -137,6 +164,11 @@ def parse_page_text(html):
             )
             text_list.pop(0)  # Remove first instance (less readable)
 
+        # ✅ Remove last "Contact" word if it's alone at the end
+        if text_list and text_list[-1].strip().lower() == "contact":
+            logging.info("🚀 Removing unnecessary 'Contact' at the end.")
+            text_list.pop()
+
         # ✅ Join paragraphs with newlines for readability
         text = "\n\n".join(text_list)
 
@@ -150,44 +182,3 @@ def parse_page_text(html):
     except Exception as e:
         logging.error(f"❌ Error while extracting text: {e}")
         return f"Error: Exception encountered while extracting text: {e}"
-
-
-def get_storage_path(url):
-    """
-    ✅ Extracts the website name from the URL and determines the folder & file name.
-    - Home page (`/`) → `home.txt`
-    - Other pages (`/contact`) → `contact.txt`
-    """
-    parsed_url = urlparse(url)
-    domain = parsed_url.netloc  # Get domain (e.g., "www.example.com")
-
-    # ✅ Remove 'www.' and TLD (.com, .org, .net, etc.)
-    domain = domain.replace("www.", "").split(".")[0]
-
-    # ✅ Get route and create filename
-    path = parsed_url.path.strip("/")  # Remove leading & trailing `/`
-    file_name = f"{path}.txt" if path else "home.txt"  # Default to "home.txt" for `/`
-
-    # ✅ Create folder path
-    folder_path = os.path.join(BASE_DIR, domain)
-
-    # ✅ Ensure the folder exists
-    os.makedirs(folder_path, exist_ok=True)
-
-    logging.info(f"📂 Website folder created: {folder_path}")
-    logging.info(f"📄 File will be saved as: {file_name}")
-
-    return folder_path, file_name
-
-
-def save_extracted_text(text, folder_path, file_name):
-    """✅ Save the extracted text to a file inside the website folder"""
-    try:
-        file_path = os.path.join(folder_path, file_name)
-
-        with open(file_path, "w", encoding="utf-8") as f:
-            f.write(text)
-
-        logging.info(f"📂 Extracted text saved to {file_path}")
-    except Exception as e:
-        logging.error(f"❌ Error saving extracted text: {e}")
