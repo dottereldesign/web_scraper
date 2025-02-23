@@ -1,50 +1,38 @@
 # app.py
 import logging
 import sys
-from flask import Flask, render_template, request, redirect, url_for, session
-from scraper.scraper import detect_navbar
+import os
+from flask import Flask, render_template, request, session
+from scraper.extract import extract_text
+from dotenv import load_dotenv
 
-# ✅ Truncated Formatter to Limit Log Length
-class TruncatedFormatter(logging.Formatter):
-    def format(self, record):
-        max_length = 100  # Set max length for logs
-        original_message = super().format(record)
-        if len(original_message) > max_length:
-            return original_message[:max_length] + "..."  # Truncate and add "..."
-        return original_message
+# ✅ Load environment variables
+load_dotenv()
+SECRET_KEY = os.getenv("FLASK_SECRET", "fallback_secret_key")
 
-# ✅ Remove existing handlers (prevents duplicate logs)
-for handler in logging.root.handlers[:]:
-    logging.root.removeHandler(handler)
-
-# ✅ Setup global logging with TruncatedFormatter
-formatter = TruncatedFormatter("%(asctime)s - [%(levelname)s] - %(message)s")
-handler = logging.StreamHandler(sys.stdout)
-handler.setFormatter(formatter)
-
-# ✅ Apply to root logger
-logging.basicConfig(level=logging.INFO, handlers=[handler])  # Set default to INFO
-
-# ✅ Suppress DEBUG logs from third-party libraries
-logging.getLogger("selenium").setLevel(logging.WARNING)  # Suppress Selenium debug logs
-logging.getLogger("urllib3").setLevel(logging.WARNING)  # Suppress urllib3 debug logs
-logging.getLogger("werkzeug").setLevel(logging.WARNING)  # Suppress Flask server debug logs
+# ✅ Logging Setup
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stdout,
+    format="%(asctime)s - [%(levelname)s] - %(message)s",
+)
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key"
+app.secret_key = SECRET_KEY  # Use secure secret key
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
+    text = None
     if request.method == "POST":
         url = request.form.get("url")
-        logging.info(f"📥 Received navbar detection request for: {url}")
-        data = detect_navbar(url)
+        logging.info(f"📥 Extracting text from: {url}")
+        text = extract_text(url)
+        session["page_text"] = text  # Store text in session
 
-        session["navbar_data"] = data  # ✅ Store data in session
-        return redirect(url_for("index"))
+    text = session.pop("page_text", None)  # Retrieve stored text
+    return render_template("index.html", text=text)
 
-    data = session.pop("navbar_data", None)  # ✅ Retrieve stored data
-    return render_template("index.html", data=data)
 
 if __name__ == "__main__":
     logging.info("🚀 Starting Flask App...")

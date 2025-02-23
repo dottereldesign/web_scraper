@@ -1,111 +1,191 @@
 # scraper/extract.py
 import logging
-import os
-from urllib.parse import urlparse
-from selenium.webdriver.common.by import By
 from bs4 import BeautifulSoup
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.by import By
+from .browser import get_driver
+import time
+from .utils import format_url
 
-# ✅ File Extensions to Detect
-FILE_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".zip", ".rar", ".mp3", ".mp4"}
 
-def log_links(links, depth=0):
-    """Log links in hierarchical format."""
-    logging.info(f"📝 Logging {len(links)} extracted links...")
-    for link in links:
-        indent = "➜ " * depth  # Indentation for children
-        logging.info(f"{indent}{link['name']} ({link['url']})")
+def extract_text(url):
+    """
+    Extracts all meaningful text from a webpage using Selenium and BeautifulSoup.
 
-        if link["children"]:
-            log_links(link["children"], depth + 1)
+    Steps:
+    1. Formats the URL to ensure it has "https://"
+    2. Initializes the Selenium WebDriver
+    3. Opens the webpage in a headless browser
+    4. Waits for the page to fully load
+    5. Extracts the page source HTML
+    6. Parses and cleans the HTML to extract readable text
+    7. Returns the extracted text
+    """
 
-def extract_links(driver):
-    """Extracts all website links and categorizes files separately."""
-    logging.info("🔍 [START] Extracting all website links...")
+    logging.info(f"🔍 [START] Extracting text from: {url}")
 
-    root_links = []
-    file_links = []  # ✅ Separate list for file links
+    # Ensure URL has "https://" if missing
+    url = format_url(url)
+    logging.info(f"🔗 Formatted URL: {url}")
 
-    all_links = driver.find_elements(By.TAG_NAME, "a")
-    logging.info(f"🔗 Found {len(all_links)} total links on the page.")
+    # Initialize Selenium WebDriver (Headless Firefox)
+    driver = get_driver()
 
-    for a in all_links:
-        try:
-            link_text = a.text.strip()
-            link_url = a.get_attribute("href")
+    try:
+        logging.info("🌍 Opening website in browser...")
+        driver.get(url)
 
-            if not link_text or not link_url:
-                logging.debug("⏩ Skipping empty link.")
-                continue  # Skip empty links
+        # Wait until JavaScript-rendered content is fully loaded
+        logging.info("⏳ Waiting for page to fully load...")
+        WebDriverWait(driver, 15).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
 
-            parsed_url = urlparse(link_url)
-            file_ext = os.path.splitext(parsed_url.path)[1].lower()
+        # Extra delay to allow any remaining JavaScript to execute
+        logging.info("⏳ Extra buffer sleep for JS-heavy pages...")
+        time.sleep(3)
 
-            # ✅ If it's a file, store it separately
-            if file_ext in FILE_EXTENSIONS:
-                logging.info(f"📂 Detected file link: {link_text} ({file_ext})")
-                file_links.append({"name": link_text, "url": link_url})
-                continue
+        logging.info("✅ Page loaded successfully.")
 
-            link_data = {"name": link_text, "url": link_url, "children": [], "depth": 0}
-            root_links.append(link_data)
+        # Extract the page source (HTML)
+        page_source = driver.page_source
 
-        except Exception as e:
-            logging.warning(f"⚠️ Error processing link: {e}")
+        if not page_source:
+            logging.error("❌ Empty page source received.")
+            return "Error: No HTML content retrieved."
 
-    logging.info(f"✅ Link extraction completed. Found {len(root_links)} standard links and {len(file_links)} file links.")
-    return {"navbar_links": root_links, "file_links": file_links}
+        logging.info(f"📝 Raw page source length: {len(page_source)} characters")
 
-# ✅ Standard Text Extraction (All Text)
-def extract_text(driver):
-    """Extracts all visible text content from the page while preserving structure."""
-    logging.info("📜 [START] Extracting all text content from the page...")
+        # Parse and clean the extracted HTML
+        text = parse_page_text(page_source)
+        logging.info(f"✅ Extracted {len(text)} characters.")
 
-    soup = BeautifulSoup(driver.page_source, "lxml")
-    logging.info("🔄 Parsed page source with BeautifulSoup.")
+    except Exception as e:
+        logging.error(f"❌ Error extracting text: {e}")
+        text = f"Error extracting text: {e}"
 
-    # ✅ Exclude common repetitive elements like headers, footers, and menus
-    unwanted_tags = ["nav", "header", "footer", "aside", "script", "style"]
-    for unwanted in soup.find_all(unwanted_tags):
-        unwanted.decompose()  # Remove unwanted elements from the soup
-    logging.info(f"🗑️ Removed {len(unwanted_tags)} unwanted sections (headers, footers, scripts, etc.).")
+    finally:
+        # Close the WebDriver to free resources
+        driver.quit()
+        logging.info("✅ WebDriver closed.")
 
-    # ✅ Extract visible text from paragraphs, headings, and key divs
-    extracted_text = []
-    for el in soup.find_all(["p", "h1", "h2", "h3", "h4", "h5", "h6", "span", "div"]):
-        if el.get_text(strip=True):  # ✅ Ensure it's not empty
-            extracted_text.append(el.get_text(strip=True))
+    return text
 
-    text_content = "\n\n".join(extracted_text)
-    logging.info(f"✅ Text extraction completed. Extracted {len(text_content)} characters.")
 
-    return text_content
+def parse_page_text(html):
+    """
+    Parses the page HTML using BeautifulSoup to extract meaningful text.
 
-# ✅ Advanced Visible Text Extraction (Avoids Hidden Elements)
-def extract_visible_text(driver):
-    """Extracts only visible text from the page while avoiding hidden content."""
-    logging.info("📜 [START] Extracting visible text content from the page...")
+    Steps:
+    1. Removes unnecessary sections like navigation, headers, footers, scripts, and styles
+    2. Removes hidden elements (display: none, aria-hidden)
+    3. Extracts text from paragraphs, headings, lists, tables, spans, and divs
+    4. Joins the extracted text and returns it in a clean format
+    """
 
-    soup = BeautifulSoup(driver.page_source, "lxml")
-    logging.info("🔄 Parsed page source with BeautifulSoup.")
+    if not html:
+        logging.error("❌ Received empty HTML content.")
+        return "Error: No HTML content received."
 
-    # ✅ Remove unwanted sections like nav, header, footer, and hidden elements
-    unwanted_tags = ["nav", "header", "footer", "aside", "script", "style"]
-    for unwanted in soup.find_all(unwanted_tags):
-        unwanted.decompose()
-    logging.info(f"🗑️ Removed {len(unwanted_tags)} unwanted sections.")
+    logging.info("🛠️ Parsing page HTML with BeautifulSoup...")
+    soup = BeautifulSoup(html, "lxml")
 
-    # ✅ Extract text but **skip elements that are hidden via CSS**
-    extracted_text = []
-    for el in soup.find_all(["p", "h1", "h2", "h3", "h4", "h5", "h6", "span", "div"]):
-        if el.get_text(strip=True) and el.has_attr("style"):
-            style = el["style"].lower()
-            if "display:none" in style or "visibility:hidden" in style:
-                logging.debug(f"⏩ Skipping hidden element: {el.name}")
-                continue  # ✅ Skip hidden elements
-        
-        extracted_text.append(el.get_text(strip=True))
+    logging.info(
+        "🧹 Removing unnecessary sections (nav, header, footer, scripts, styles, forms, buttons, menus)..."
+    )
 
-    text_content = "\n\n".join(extracted_text)
-    logging.info(f"✅ Visible text extraction completed. Extracted {len(text_content)} characters.")
+    try:
+        # Remove elements that typically contain non-content sections
+        for tag in soup.find_all(
+            [
+                "nav",
+                "header",
+                "footer",
+                "aside",
+                "script",
+                "style",
+                "form",
+                "button",
+                "iframe",
+                "noscript",
+            ]
+        ):
+            logging.debug(f"🚮 Removing {tag.name} element.")
+            tag.decompose()
 
-    return text_content
+        # Remove elements with specific classes (menus, empty containers, video embeds, etc.)
+        for tag in soup.find_all(
+            class_=[
+                "wsite-menu-default",
+                "wsite-youtube",
+                "wsite-cart-contents",
+                "wsite-section-elements",
+                "container",
+            ]
+        ):
+            logging.debug(f"🚮 Removing class-based element: {tag.name}")
+            tag.decompose()
+
+    except Exception as e:
+        logging.error(f"❌ Error while removing sections: {e}")
+
+    logging.info("🧹 Removing hidden elements (display: none, aria-hidden)...")
+
+    try:
+        for tag in soup.find_all(style=True):
+            # Get the 'style' attribute safely (avoid NoneType errors)
+            style = tag.get("style", "")
+            if isinstance(style, str) and "display: none" in style:
+                logging.debug(f"🚮 Removing hidden element: {tag.name}")
+                tag.decompose()
+
+        for tag in soup.find_all(attrs={"aria-hidden": "true"}):
+            logging.debug(f"🚮 Removing aria-hidden element: {tag.name}")
+            tag.decompose()
+
+    except Exception as e:
+        logging.error(f"❌ Error while removing hidden elements: {e}")
+
+    logging.info(
+        "🔎 Extracting meaningful text elements (p, h1-h6, li, td, th, span, div)..."
+    )
+
+    try:
+        # Extract text from paragraphs, headings, lists, tables, spans, links, and **divs**
+        text_elements = soup.find_all(
+            ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td", "th", "span", "div"]
+        )
+
+        if not text_elements:
+            logging.warning("⚠️ No text elements found on the page.")
+            return "Error: No readable text found on the page."
+
+        logging.info(f"📄 Found {len(text_elements)} text elements on the page.")
+
+        text_list = []
+        for el in text_elements:
+            extracted_text = el.get_text(
+                separator=" ", strip=True
+            )  # Preserve line breaks
+            if (
+                extracted_text and len(extracted_text) > 5
+            ):  # Ignore very short text (e.g., menu items)
+                text_list.append(extracted_text)
+                logging.debug(
+                    f"✅ Extracted text: {extracted_text[:50]}..."
+                )  # Preview of extracted text
+
+        # Join extracted text with double newlines for readability
+        text = "\n\n".join(text_list)
+
+        if not text:
+            logging.warning("⚠️ Extracted text is empty.")
+            return "Error: Extracted text is empty."
+
+        logging.info(f"✅ Extracted {len(text)} characters of text.")
+        return text.strip()
+
+    except Exception as e:
+        logging.error(f"❌ Error while extracting text: {e}")
+        return f"Error: Exception encountered while extracting text: {e}"

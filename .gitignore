@@ -28,3 +28,6 @@ Thumbs.db
 # Selenium WebDriver caches
 .geckodriver.log
 chromedriver.log
+
+# .gitignore
+.env
