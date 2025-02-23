@@ -1,89 +1,73 @@
 # scraper/extract.py
 import logging
-from bs4 import BeautifulSoup
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.by import By
-from .browser import get_driver
 import time
+import os
+from urllib.parse import urlparse
+from playwright.sync_api import sync_playwright
+from bs4 import BeautifulSoup
 from .utils import format_url
+
+# ✅ Store the first clean extraction
+stored_text = None
+last_extraction_time = 0
+last_url = ""
+BASE_DIR = "extracted_data"  # ✅ Base directory where all extracted files will be saved
 
 
 def extract_text(url):
-    """
-    Extracts all meaningful text from a webpage using Selenium and BeautifulSoup.
+    global last_extraction_time, last_url
 
-    Steps:
-    1. Formats the URL to ensure it has "https://"
-    2. Initializes the Selenium WebDriver
-    3. Opens the webpage in a headless browser
-    4. Waits for the page to fully load
-    5. Extracts the page source HTML
-    6. Parses and cleans the HTML to extract readable text
-    7. Returns the extracted text
-    """
+    current_time = time.time()
+
+    # ✅ Prevent skipping different pages (only block same URL within 3 seconds)
+    if url == last_url and (current_time - last_extraction_time) < 3:
+        logging.warning("⚠️ Duplicate extraction request ignored.")
+        return None
+
+    last_url = url
+    last_extraction_time = current_time
 
     logging.info(f"🔍 [START] Extracting text from: {url}")
-
-    # Ensure URL has "https://" if missing
     url = format_url(url)
-    logging.info(f"🔗 Formatted URL: {url}")
 
-    # Initialize Selenium WebDriver (Headless Firefox)
-    driver = get_driver()
+    with sync_playwright() as p:
+        try:
+            browser = p.chromium.launch(headless=True)
+            context = browser.new_context()
+            page = context.new_page()
 
-    try:
-        logging.info("🌍 Opening website in browser...")
-        driver.get(url)
+            page.goto(url, timeout=20000)
+            page.wait_for_load_state("networkidle")
+            time.sleep(2)
 
-        # Wait until JavaScript-rendered content is fully loaded
-        logging.info("⏳ Waiting for page to fully load...")
-        WebDriverWait(driver, 15).until(
-            lambda d: d.execute_script("return document.readyState") == "complete"
-        )
+            page_source = page.content()
+            if not page_source:
+                logging.error("❌ No HTML content retrieved.")
+                return "Error: No HTML content retrieved."
 
-        # Extra delay to allow any remaining JavaScript to execute
-        logging.info("⏳ Extra buffer sleep for JS-heavy pages...")
-        time.sleep(3)
+            # ✅ Print the full HTML source for debugging
 
-        logging.info("✅ Page loaded successfully.")
+            extracted_text = parse_page_text(page_source)
 
-        # Extract the page source (HTML)
-        page_source = driver.page_source
+            if "Error:" in extracted_text:
+                logging.error("🚨 Extraction failed, skipping save.")
+                return extracted_text  # Avoid saving errors
 
-        if not page_source:
-            logging.error("❌ Empty page source received.")
-            return "Error: No HTML content retrieved."
+            # ✅ Get website folder name & save file
+            website_folder, file_name = get_storage_path(url)
+            save_extracted_text(extracted_text, website_folder, file_name)
 
-        logging.info(f"📝 Raw page source length: {len(page_source)} characters")
+            return extracted_text  # ✅ Return extracted text
 
-        # Parse and clean the extracted HTML
-        text = parse_page_text(page_source)
-        logging.info(f"✅ Extracted {len(text)} characters.")
+        except Exception as e:
+            logging.error(f"❌ Error extracting text: {e}")
+            return f"Error extracting text: {e}"
 
-    except Exception as e:
-        logging.error(f"❌ Error extracting text: {e}")
-        text = f"Error extracting text: {e}"
-
-    finally:
-        # Close the WebDriver to free resources
-        driver.quit()
-        logging.info("✅ WebDriver closed.")
-
-    return text
+        finally:
+            browser.close()
 
 
 def parse_page_text(html):
-    """
-    Parses the page HTML using BeautifulSoup to extract meaningful text.
-
-    Steps:
-    1. Removes unnecessary sections like navigation, headers, footers, scripts, and styles
-    2. Removes hidden elements (display: none, aria-hidden)
-    3. Extracts text from paragraphs, headings, lists, tables, spans, and divs
-    4. Joins the extracted text and returns it in a clean format
-    """
-
     if not html:
         logging.error("❌ Received empty HTML content.")
         return "Error: No HTML content received."
@@ -91,12 +75,8 @@ def parse_page_text(html):
     logging.info("🛠️ Parsing page HTML with BeautifulSoup...")
     soup = BeautifulSoup(html, "lxml")
 
-    logging.info(
-        "🧹 Removing unnecessary sections (nav, header, footer, scripts, styles, forms, buttons, menus)..."
-    )
-
+    logging.info("🧹 Removing unnecessary elements...")
     try:
-        # Remove elements that typically contain non-content sections
         for tag in soup.find_all(
             [
                 "nav",
@@ -111,81 +91,103 @@ def parse_page_text(html):
                 "noscript",
             ]
         ):
-            logging.debug(f"🚮 Removing {tag.name} element.")
             tag.decompose()
-
-        # Remove elements with specific classes (menus, empty containers, video embeds, etc.)
-        for tag in soup.find_all(
-            class_=[
-                "wsite-menu-default",
-                "wsite-youtube",
-                "wsite-cart-contents",
-                "wsite-section-elements",
-                "container",
-            ]
-        ):
-            logging.debug(f"🚮 Removing class-based element: {tag.name}")
-            tag.decompose()
-
     except Exception as e:
         logging.error(f"❌ Error while removing sections: {e}")
 
-    logging.info("🧹 Removing hidden elements (display: none, aria-hidden)...")
-
+    logging.info("🔎 Extracting meaningful text elements...")
     try:
-        for tag in soup.find_all(style=True):
-            # Get the 'style' attribute safely (avoid NoneType errors)
-            style = tag.get("style", "")
-            if isinstance(style, str) and "display: none" in style:
-                logging.debug(f"🚮 Removing hidden element: {tag.name}")
-                tag.decompose()
-
-        for tag in soup.find_all(attrs={"aria-hidden": "true"}):
-            logging.debug(f"🚮 Removing aria-hidden element: {tag.name}")
-            tag.decompose()
-
-    except Exception as e:
-        logging.error(f"❌ Error while removing hidden elements: {e}")
-
-    logging.info(
-        "🔎 Extracting meaningful text elements (p, h1-h6, li, td, th, span, div)..."
-    )
-
-    try:
-        # Extract text from paragraphs, headings, lists, tables, spans, links, and **divs**
-        text_elements = soup.find_all(
-            ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td", "th", "span", "div"]
+        main_content = soup.find("div", id="wsite-content") or soup.find(
+            "div", class_="wsite-section-content"
         )
 
-        if not text_elements:
-            logging.warning("⚠️ No text elements found on the page.")
-            return "Error: No readable text found on the page."
+        if not main_content:
+            logging.warning("⚠️ No identifiable main content found.")
+            return "Error: No meaningful text found on the page."
 
-        logging.info(f"📄 Found {len(text_elements)} text elements on the page.")
+        text_elements = main_content.find_all(
+            ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td", "th", "span", "div"]
+        )
+        logging.info(f"📄 Found {len(text_elements)} text elements in main content.")
 
         text_list = []
-        for el in text_elements:
-            extracted_text = el.get_text(
-                separator=" ", strip=True
-            )  # Preserve line breaks
-            if (
-                extracted_text and len(extracted_text) > 5
-            ):  # Ignore very short text (e.g., menu items)
-                text_list.append(extracted_text)
-                logging.debug(
-                    f"✅ Extracted text: {extracted_text[:50]}..."
-                )  # Preview of extracted text
+        seen_paragraphs = set()  # ✅ Track paragraphs to remove duplicates
 
-        # Join extracted text with double newlines for readability
+        for el in text_elements:
+            extracted_text = el.get_text(separator=" ", strip=True)
+
+            # ✅ Ignore empty or very short text (likely noise)
+            if not extracted_text or len(extracted_text) < 5:
+                continue
+
+            # ✅ Normalize case & spacing for duplicate detection
+            normalized_text = " ".join(extracted_text.split()).lower()
+
+            # ✅ If this text has already been seen, it's a duplicate → skip it
+            if normalized_text in seen_paragraphs:
+                continue
+
+            text_list.append(extracted_text)
+            seen_paragraphs.add(normalized_text)
+
+        # ✅ Keep only the second instance with proper line breaks
+        if len(text_list) > 1 and text_list[0].startswith(text_list[1][:30]):
+            logging.info(
+                "🚀 Removing first duplicated block, keeping formatted version."
+            )
+            text_list.pop(0)  # Remove first instance (less readable)
+
+        # ✅ Join paragraphs with newlines for readability
         text = "\n\n".join(text_list)
 
-        if not text:
+        if not text.strip():
             logging.warning("⚠️ Extracted text is empty.")
             return "Error: Extracted text is empty."
 
-        logging.info(f"✅ Extracted {len(text)} characters of text.")
+        logging.info(f"✅ Successfully extracted text ({len(text)} characters).")
         return text.strip()
 
     except Exception as e:
         logging.error(f"❌ Error while extracting text: {e}")
         return f"Error: Exception encountered while extracting text: {e}"
+
+
+def get_storage_path(url):
+    """
+    ✅ Extracts the website name from the URL and determines the folder & file name.
+    - Home page (`/`) → `home.txt`
+    - Other pages (`/contact`) → `contact.txt`
+    """
+    parsed_url = urlparse(url)
+    domain = parsed_url.netloc  # Get domain (e.g., "www.example.com")
+
+    # ✅ Remove 'www.' and TLD (.com, .org, .net, etc.)
+    domain = domain.replace("www.", "").split(".")[0]
+
+    # ✅ Get route and create filename
+    path = parsed_url.path.strip("/")  # Remove leading & trailing `/`
+    file_name = f"{path}.txt" if path else "home.txt"  # Default to "home.txt" for `/`
+
+    # ✅ Create folder path
+    folder_path = os.path.join(BASE_DIR, domain)
+
+    # ✅ Ensure the folder exists
+    os.makedirs(folder_path, exist_ok=True)
+
+    logging.info(f"📂 Website folder created: {folder_path}")
+    logging.info(f"📄 File will be saved as: {file_name}")
+
+    return folder_path, file_name
+
+
+def save_extracted_text(text, folder_path, file_name):
+    """✅ Save the extracted text to a file inside the website folder"""
+    try:
+        file_path = os.path.join(folder_path, file_name)
+
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.write(text)
+
+        logging.info(f"📂 Extracted text saved to {file_path}")
+    except Exception as e:
+        logging.error(f"❌ Error saving extracted text: {e}")

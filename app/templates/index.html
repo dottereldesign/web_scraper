@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
-    <form method="POST">
+    <form method="POST" onsubmit="disableSubmitButton(); return true;">
       <h1>Extract Website Text</h1>
       <input
         type="text"
@@ -16,16 +16,28 @@
         placeholder="Enter URL (e.g., example.com)"
         required
       />
-      <button type="submit">Extract</button>
+      <button id="submit-btn" type="submit">Extract</button>
     </form>
 
     {% if text %}
     <div class="section">
       <h3>Extracted Page Text</h3>
-      <div class="text-content">
+      <div class="text-content" id="text-output">
         {{ text.replace("\n", "<br />\n") | safe }}
       </div>
     </div>
     {% endif %}
+
+    <script>
+      function disableSubmitButton() {
+        document.getElementById("submit-btn").disabled = true;
+      }
+
+      console.log("Extracted Text Output:");
+      const outputElement = document.getElementById("text-output");
+      if (outputElement) {
+        console.log(outputElement.innerText);
+      }
+    </script>
   </body>
 </html>

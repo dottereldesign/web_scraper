@@ -1,7 +1,7 @@
 # app/requirements.txt
 Flask==3.0.3
 beautifulsoup4==4.13.3
-selenium==4.27.1
+playwright==1.42.0  # Playwright replaces Selenium
 lxml==5.3.1
 urllib3==2.2.3
 python-dotenv==1.0.1

@@ -2,7 +2,7 @@
 import logging
 import sys
 import os
-from flask import Flask, render_template, request, session
+from flask import Flask, render_template, request
 from scraper.extract import extract_text
 from dotenv import load_dotenv
 
@@ -24,14 +24,15 @@ app.secret_key = SECRET_KEY  # Use secure secret key
 @app.route("/", methods=["GET", "POST"])
 def index():
     text = None
+
     if request.method == "POST":
         url = request.form.get("url")
-        logging.info(f"📥 Extracting text from: {url}")
-        text = extract_text(url)
-        session["page_text"] = text  # Store text in session
+        if url:
+            text = extract_text(url)  # ✅ Directly extract and send to template
 
-    text = session.pop("page_text", None)  # Retrieve stored text
-    return render_template("index.html", text=text)
+    return render_template(
+        "index.html", text=text
+    )  # ✅ No redirect, passes `text` directly
 
 
 if __name__ == "__main__":
