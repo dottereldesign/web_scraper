@@ -3,6 +3,7 @@ import logging
 import sys
 import os
 from flask import Flask, render_template, request
+from scraper.crawler import bfs_crawl
 from scraper.extract import extract_text
 from dotenv import load_dotenv
 
@@ -23,18 +24,13 @@ app.secret_key = SECRET_KEY  # Use secure secret key
 
 @app.route("/", methods=["GET", "POST"])
 def index():
-    text = None
-
     if request.method == "POST":
         url = request.form.get("url")
         if url:
-            text = extract_text(url)  # ✅ Directly extract and send to template
+            bfs_crawl(url, max_pages=50)  # Crawl site, storing data in extracted_data/
 
-    return render_template(
-        "index.html", text=text
-    )  # ✅ No redirect, passes `text` directly
+    return render_template("index.html")
 
 
 if __name__ == "__main__":
-    logging.info("🚀 Starting Flask App...")
     app.run(debug=True)

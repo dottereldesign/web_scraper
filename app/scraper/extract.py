@@ -10,6 +10,7 @@ from .storage import (
 )  # ✅ Import storage functions
 import re  # ✅ Import regex module
 
+
 # ✅ Store the first clean extraction
 stored_text = None
 last_extraction_time = 0
