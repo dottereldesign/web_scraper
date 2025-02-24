@@ -1,13 +1,13 @@
 # scraper/crawler.py
 import logging
 import os
-import json
 import time
+import random
 from collections import deque
 from urllib.parse import urljoin, urlparse
 from playwright.sync_api import sync_playwright
-from .storage import save_text, save_image, save_file  # ✅ Ensure save_text exists
-from .utils import format_url  # ✅ Import format_url
+from .storage import save_text, save_image, save_file
+from .utils import format_url, get_random_headers, get_random_proxy, random_throttle
 
 
 def normalize_url(base_url, link):
@@ -19,13 +19,15 @@ def normalize_url(base_url, link):
 
 def bfs_crawl(start_url, max_pages=50):
     """Crawl entire site using BFS while maintaining link hierarchy."""
-    start_url = format_url(start_url)  # ✅ Ensure URL has HTTPS
+    start_url = format_url(start_url)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context()
+        context = browser.new_context(
+            extra_http_headers=get_random_headers()
+        )  # ✅ Set rotating User-Agent
 
-        queue = deque([(start_url, None)])  # (current_page, parent_page)
+        queue = deque([(start_url, None)])
         visited = set()
         graph = {}
 
@@ -34,7 +36,7 @@ def bfs_crawl(start_url, max_pages=50):
 
         while queue and len(visited) < max_pages:
             url, parent = queue.popleft()
-            url = format_url(url)  # ✅ Ensure every URL is valid
+            url = format_url(url)
 
             if url in visited:
                 continue
@@ -45,32 +47,39 @@ def bfs_crawl(start_url, max_pages=50):
 
             try:
                 page = context.new_page()
-                page.goto(url, timeout=20000)
-                page.wait_for_load_state("networkidle")
-                time.sleep(2)
+                proxy = get_random_proxy()  # ✅ Apply proxy if available
+
+                page.goto(url, timeout=20000, wait_until="networkidle")
+                time.sleep(random.uniform(2, 4))  # ✅ Additional randomized delay
 
                 # ✅ Extract page content BEFORE closing the page
                 page_text = page.inner_text("body")
                 save_text(domain, url, page_text)
 
-                # ✅ Extract and save images
-                images = page.eval_on_selector_all(
+                # ✅ Extract images
+                image_urls = page.eval_on_selector_all(
                     "img", "elements => elements.map(e => e.src)"
                 )
-                for img_url in images:
-                    save_image(domain, urljoin(url, img_url))
+                for img_url in image_urls:
+                    img_url = urljoin(url, img_url)
+                    save_image(domain, img_url)
 
-                # ✅ Extract and save files (PDFs, etc.)
-                files = page.eval_on_selector_all(
+                # ✅ Extract downloadable files
+                file_urls = page.eval_on_selector_all(
                     "a", "elements => elements.map(e => e.href)"
                 )
-                for file_url in files:
-                    if file_url.endswith((".pdf", ".docx", ".zip")):
-                        save_file(domain, urljoin(url, file_url))
+                for file_url in file_urls:
+                    if file_url.endswith(
+                        (".pdf", ".docx", ".zip", ".pptx", ".xlsx", ".txt")
+                    ):
+                        file_url = urljoin(url, file_url)
+                        save_file(domain, file_url)
+
+                random_throttle()  # ✅ Throttle requests randomly
 
             except Exception as e:
-                print(f"❌ Error loading {url}: {e}")  # ✅ Handle error properly
+                print(f"❌ Error loading {url}: {e}")
 
             finally:
                 if "page" in locals():
-                    page.close()  # ✅ Close the page at the end
+                    page.close()

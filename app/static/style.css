@@ -1,28 +1,40 @@
 /* static/style.css */
 * {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  font-family: Inter;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  color: #000;
+  border-radius: 8px;
 }
 
 body {
   font-family: "Arial", sans-serif;
-  background: #0f172a;
-  color: #ffffff;
+  background: #ffffff;
+
   text-align: center;
   margin: 40px;
 }
 
 form {
-  background-color: #1e293b;
+  background-color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 input,
 button {
   padding: 10px;
+  width: min(100%, 400px);
   margin: 10px;
   font-size: 16px;
+  border: 1px solid rgb(155, 155, 155);
+  margin: 0 auto;
+  height: 50px;
+}
+button {
+  font-weight: 600;
 }
 
 .text-content {

@@ -8,8 +8,16 @@
     <link rel="stylesheet" href="/static/style.css" />
   </head>
   <body>
+    <header>
+      <img
+        src="{{ url_for('static', filename='images/scrapegoat-logo.png') }}"
+        alt="ScrapeGoat Logo"
+        class="logo"
+      />
+    </header>
+
     <form method="POST" onsubmit="disableSubmitButton(); return true;">
-      <h1>Extract Website Text</h1>
+      <h1>Scrapegoat</h1>
       <input
         type="text"
         name="url"
@@ -27,17 +35,5 @@
       </div>
     </div>
     {% endif %}
-
-    <script>
-      function disableSubmitButton() {
-        document.getElementById("submit-btn").disabled = true;
-      }
-
-      console.log("Extracted Text Output:");
-      const outputElement = document.getElementById("text-output");
-      if (outputElement) {
-        console.log(outputElement.innerText);
-      }
-    </script>
   </body>
 </html>
