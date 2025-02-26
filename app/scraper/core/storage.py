@@ -1,6 +1,7 @@
 # app/scraper/storage.py
 import os
-import logging
+from scraper.logging_config import logging
+
 import requests
 from urllib.parse import urlparse
 

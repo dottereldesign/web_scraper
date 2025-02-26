@@ -1,9 +1,20 @@
 # scraper/extract.py
-import logging
+from scraper.logging_config import logging
+
 import time
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
-from .utils import format_url
+import asyncio
+from playwright.async_api import async_playwright  # ✅ Add this import
+
+from scraper.utils import (
+    get_random_headers,
+    get_random_proxy,
+    format_url,
+    random_throttle,
+    async_random_throttle,
+)
+
 from .storage import (
     get_storage_path,
     save_extracted_text,
@@ -19,57 +30,38 @@ last_url = ""
 BASE_DIR = "extracted_data"  # ✅ Base directory where all extracted files will be saved
 
 
-def extract_text(url):
-    global last_extraction_time, last_url
-
-    current_time = time.time()
-
-    # ✅ Prevent skipping different pages (only block same URL within 3 seconds)
-    if url == last_url and (current_time - last_extraction_time) < 3:
-        logging.warning("⚠️ Duplicate extraction request ignored.")
-        return None
-
-    last_url = url
-    last_extraction_time = current_time
-
-    logging.info(f"🔍 [START] Extracting text from: {url}")
+async def async_extract_text(url):
+    """Extract text from a webpage asynchronously using Playwright."""
+    logging.info(f"🔍 Extracting text from: {url}")
     url = format_url(url)
 
-    with sync_playwright() as p:
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context(extra_http_headers=get_random_headers())
+        page = await context.new_page()
+
         try:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context()
-            page = context.new_page()
+            await page.goto(url, timeout=20000, wait_until="networkidle")
+            await asyncio.sleep(2)  # Allow time for full page load
 
-            page.goto(url, timeout=20000)
-            page.wait_for_load_state("networkidle")
-            time.sleep(2)
-
-            page_source = page.content()
+            page_source = await page.content()
             if not page_source:
                 logging.error("❌ No HTML content retrieved.")
                 return "Error: No HTML content retrieved."
 
-            # ✅ Print the full HTML source for debugging
-
             extracted_text = parse_page_text(page_source)
 
-            if "Error:" in extracted_text:
-                logging.error("🚨 Extraction failed, skipping save.")
-                return extracted_text  # Avoid saving errors
+            # Save extracted text
+            save_extracted_text(url, extracted_text)
 
-            # ✅ Get website folder name & save file
-            website_folder, file_name = get_storage_path(url)
-            save_extracted_text(extracted_text, website_folder, file_name)
-
-            return extracted_text  # ✅ Return extracted text
+            return extracted_text
 
         except Exception as e:
             logging.error(f"❌ Error extracting text: {e}")
             return f"Error extracting text: {e}"
 
         finally:
-            browser.close()
+            await browser.close()
 
 
 def parse_page_text(html):

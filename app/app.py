@@ -3,9 +3,10 @@ import logging
 import sys
 import os
 from flask import Flask, render_template, request
-from scraper.crawler import bfs_crawl
-from scraper.extract import extract_text
+from scraper.core.crawler import async_bfs_crawl  # Updated import
+from scraper.core.extract import async_extract_text  # Updated import
 from dotenv import load_dotenv
+import asyncio
 
 # ✅ Load environment variables
 load_dotenv()
@@ -27,7 +28,7 @@ def index():
     if request.method == "POST":
         url = request.form.get("url")
         if url:
-            bfs_crawl(url, max_pages=50)  # Crawl site, storing data in extracted_data/
+            asyncio.run(async_bfs_crawl(url, max_pages=50))  # ✅ New async function
 
     return render_template("index.html")
 
