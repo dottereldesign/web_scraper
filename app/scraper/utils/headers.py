@@ -1,8 +1,9 @@
 # scraper/utils/headers.py
 from scraper.logging_config import logging
-
+from typing import Dict
 import random
-from fake_useragent import UserAgent
+from fake_useragent import UserAgent  # type: ignore
+
 
 # ✅ Try initializing UserAgent
 try:
@@ -17,7 +18,7 @@ except Exception as e:
     ]
 
 
-def get_random_headers():
+def get_random_headers() -> Dict[str, str]:
     """Generate random headers with a rotating User-Agent."""
     user_agent = random.choice(USER_AGENTS)
     headers = {

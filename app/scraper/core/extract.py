@@ -1,39 +1,26 @@
-# scraper/extract.py
-from scraper.logging_config import logging
-
-import time
-from playwright.sync_api import sync_playwright
-from bs4 import BeautifulSoup
+# scraper/core/extract.py
+from typing import Optional, Union, Set, List
 import asyncio
-from playwright.async_api import async_playwright  # ✅ Add this import
+import re
 
-from scraper.utils import (
-    get_random_headers,
-    get_random_proxy,
-    format_url,
-    random_throttle,
-    async_random_throttle,
-)
+from bs4 import BeautifulSoup, Tag
+from playwright.async_api import async_playwright
 
-from .storage import (
-    get_storage_path,
-    save_extracted_text,
-)  # ✅ Import storage functions
-import re  # ✅ Import regex module
+from scraper.logging_config import get_logger
+from scraper.utils import get_random_headers, format_url
+from scraper.core.storage import save_text
 
+logger = get_logger(__name__)
 
-# ✅ Store the first clean extraction
-stored_text = None
-last_extraction_time = 0
-last_url = ""
-
-BASE_DIR = "extracted_data"  # ✅ Base directory where all extracted files will be saved
-
-
-async def async_extract_text(url):
-    """Extract text from a webpage asynchronously using Playwright."""
-    logging.info(f"🔍 Extracting text from: {url}")
+async def async_extract_text(url: str, domain: Optional[str] = None) -> Union[str, None]:
+    """
+    Extract text from a webpage asynchronously using Playwright, save it using unified save_text().
+    Returns the extracted text, or an error message.
+    """
+    logger.info(f"🔍 Extracting text from: {url}")
     url = format_url(url)
+    if not domain:
+        domain = url.split("//")[-1].split("/")[0]
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -42,136 +29,115 @@ async def async_extract_text(url):
 
         try:
             await page.goto(url, timeout=20000, wait_until="networkidle")
-            await asyncio.sleep(2)  # Allow time for full page load
+            await asyncio.sleep(2)  # Give time for full render
 
             page_source = await page.content()
             if not page_source:
-                logging.error("❌ No HTML content retrieved.")
+                logger.error("❌ No HTML content retrieved.")
                 return "Error: No HTML content retrieved."
 
             extracted_text = parse_page_text(page_source)
-
-            # Save extracted text
-            save_extracted_text(url, extracted_text)
-
+            save_text(domain, url, extracted_text)
             return extracted_text
 
         except Exception as e:
-            logging.error(f"❌ Error extracting text: {e}")
+            logger.error(f"❌ Error extracting text: {e}", exc_info=True)
             return f"Error extracting text: {e}"
 
         finally:
             await browser.close()
 
-
-def parse_page_text(html):
+def parse_page_text(html: str) -> str:
+    """
+    Clean and parse main page text from HTML with BeautifulSoup.
+    Returns cleaned text or an error string.
+    """
     if not html:
-        logging.error("❌ Received empty HTML content.")
+        logger.error("❌ Received empty HTML content.")
         return "Error: No HTML content received."
 
-    logging.info("🛠️ Parsing page HTML with BeautifulSoup...")
+    logger.info("🛠️ Parsing page HTML with BeautifulSoup...")
     soup = BeautifulSoup(html, "lxml")
 
-    logging.info("🧹 Removing unnecessary elements...")
+    logger.info("🧹 Removing unnecessary elements...")
     try:
-        for tag in soup.find_all(
-            [
-                "nav",
-                "header",
-                "footer",
-                "aside",
-                "script",
-                "style",
-                "form",
-                "button",
-                "iframe",
-                "noscript",
-            ]
-        ):
+        for tag in soup.find_all([
+            "nav", "header", "footer", "aside", "script", "style",
+            "form", "button", "iframe", "noscript",
+        ]):
             tag.decompose()
     except Exception as e:
-        logging.error(f"❌ Error while removing sections: {e}")
+        logger.error(f"❌ Error while removing sections: {e}")
 
-    logging.info("🔎 Extracting meaningful text elements...")
+    logger.info("🔎 Extracting meaningful text elements...")
     try:
         main_content = soup.find("div", id="wsite-content") or soup.find(
             "div", class_="wsite-section-content"
         )
 
-        if not main_content:
-            logging.warning("⚠️ No identifiable main content found.")
+        if not (main_content and isinstance(main_content, Tag)):
+            logger.warning("⚠️ No identifiable main content found.")
             return "Error: No meaningful text found on the page."
 
-        text_elements = main_content.find_all(
-            ["p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td", "th", "span", "div"]
-        )
-        logging.info(f"📄 Found {len(text_elements)} text elements in main content.")
+        text_elements = [
+            el for el in main_content.find_all([
+                "p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td", "th", "span", "div"
+            ])
+            if isinstance(el, Tag)
+        ]
+        logger.info(f"📄 Found {len(text_elements)} text elements in main content.")
 
-        text_list = []
-        seen_paragraphs = set()  # ✅ Track paragraphs to remove duplicates
-        prev_line = ""  # ✅ Track previous line for funder duplicates
+        text_list: List[str] = []
+        seen_paragraphs: Set[str] = set()
+        prev_line: str = ""
 
         for el in text_elements:
-            extracted_text = el.get_text(separator=" ", strip=True)
+            extracted_text: str = el.get_text(separator=" ", strip=True)
 
-            # ✅ Ignore empty or very short text (likely noise)
             if not extracted_text or len(extracted_text) < 5:
                 continue
 
-            # ✅ Skip file-related metadata
             if any(
                 keyword in extracted_text.lower()
                 for keyword in [
-                    "file size:",
-                    "file type:",
-                    "download file",
-                    "pdf",
+                    "file size:", "file type:", "download file", "pdf"
                 ]
             ):
                 continue
 
-            # ✅ Remove lines that are just a number followed by "kb"
             if re.match(r"^\d+\s*kb$", extracted_text.lower()):
-                logging.info(f"🚀 Skipping file size reference: {extracted_text}")
+                logger.info(f"🚀 Skipping file size reference: {extracted_text}")
                 continue
 
-            # ✅ Remove duplicate funders
             if extracted_text == prev_line:
                 continue
             prev_line = extracted_text
 
-            # ✅ Normalize case & spacing for duplicate detection
             normalized_text = " ".join(extracted_text.split()).lower()
-
-            # ✅ If this text has already been seen, it's a duplicate → skip it
             if normalized_text in seen_paragraphs:
                 continue
 
             text_list.append(extracted_text)
             seen_paragraphs.add(normalized_text)
 
-        # ✅ Keep only the second instance with proper line breaks
-        if len(text_list) > 1 and text_list[0].startswith(text_list[1][:30]):
-            logging.info(
-                "🚀 Removing first duplicated block, keeping formatted version."
-            )
-            text_list.pop(0)  # Remove first instance (less readable)
+        # Post-processing for duplicate blocks and "Contact" at end
+        if len(text_list) > 1 and text_list[0][:30] == text_list[1][:30] and abs(len(text_list[0]) - len(text_list[1])) < 20:
+            logger.info("🚀 Removing first duplicated block, keeping formatted version.")
+            text_list.pop(0)
 
-        # ✅ Remove last "Contact" word if it's alone at the end
         if text_list and text_list[-1].strip().lower() == "contact":
-            logging.info("🚀 Removing unnecessary 'Contact' at the end.")
+            logger.info("🚀 Removing unnecessary 'Contact' at the end.")
             text_list.pop()
 
-        # ✅ Join paragraphs with newlines for readability
         text = "\n\n".join(text_list)
 
         if not text.strip():
-            logging.warning("⚠️ Extracted text is empty.")
+            logger.warning("⚠️ Extracted text is empty.")
             return "Error: Extracted text is empty."
 
-        logging.info(f"✅ Successfully extracted text ({len(text)} characters).")
+        logger.info(f"✅ Successfully extracted text ({len(text)} characters).")
         return text.strip()
 
     except Exception as e:
-        logging.error(f"❌ Error while extracting text: {e}")
+        logger.error(f"❌ Error while extracting text: {e}", exc_info=True)
         return f"Error: Exception encountered while extracting text: {e}"
