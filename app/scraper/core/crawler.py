@@ -1,17 +1,16 @@
 # scraper/core/crawler.py
-from playwright._impl._api_structures import ProxySettings  # For type checking (if needed)
+# scraper/core/crawler.py
+
 import asyncio
 from collections import deque
 from urllib.parse import urljoin, urlparse
+from playwright.async_api import async_playwright
 from scraper.utils.url_utils import format_url
 from scraper.utils.headers import get_random_headers
-from scraper.utils.proxies import get_random_proxy
 from scraper.utils.throttling import async_random_throttle
 from scraper.core.storage import save_text, save_image, save_file
 from scraper.logging_config import get_logger
 from typing import Any, Dict, List, Optional, Set, Callable
-from playwright.async_api import async_playwright
-
 
 logger = get_logger(__name__)
 
@@ -39,21 +38,8 @@ async def async_bfs_crawl(
     count = 0
 
     async with _browser_semaphore:
-        # --- Get a proxy string, if available ---
-        proxy_config = await get_random_proxy()
-        proxy_settings = None
-        if proxy_config and "http" in proxy_config:
-            proxy_settings = {"server": proxy_config["http"]}
-            logger.info(f"🛡️ Using Proxy for Playwright: {proxy_settings['server']}")
-
         async with async_playwright() as p:
-            # Correct launch args (proxy, headless)
-            if proxy_settings:
-            # Use type: ignore to skip Pyright warning, as the structure is correct at runtime
-                browser = await p.chromium.launch(headless=True, proxy=proxy_settings) # type: ignore
-            else:
-                browser = await p.chromium.launch(headless=True)
-
+            browser = await p.chromium.launch(headless=True)
             context = await browser.new_context(extra_http_headers=get_random_headers())
 
             try:

@@ -10,14 +10,18 @@
 
 body {
   font-family: "Arial", sans-serif;
-  background: #ffffff;
+  background: #101214;
 
   text-align: center;
   margin: 40px;
 }
 
+h1 {
+  color: white;
+}
+
 form {
-  background-color: #ffffff;
+  background-color: #101214;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -37,6 +41,12 @@ button {
   font-weight: 600;
 }
 
+button:hover {
+  background-color: green;
+  color: white;
+  cursor: pointer;
+}
+
 .text-content {
   text-align: left;
   margin-top: 20px;
@@ -45,4 +55,135 @@ button {
   color: white;
   background: #1e293b;
   white-space: pre-wrap;
+}
+
+/* Add this to the end of your static/style.css */
+
+/* Category & grid layout */
+.section {
+  margin: 24px auto;
+  max-width: 700px;
+  background: #161c22;
+  border-radius: 12px;
+  padding: 24px 16px;
+  color: #fff;
+  box-shadow: 0 2px 12px 0 rgba(20, 30, 50, 0.12);
+}
+.file-category {
+  margin-bottom: 18px;
+}
+.file-category h4 {
+  font-size: 1.1rem;
+  margin-bottom: 6px;
+  color: #fff;
+  text-align: left;
+  font-weight: 600;
+}
+
+.file-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.file-card {
+  background: #222d38;
+  border-radius: 10px;
+  padding: 10px 6px 12px 6px;
+  text-align: center;
+  box-shadow: 0 1px 3px 0 rgba(15, 25, 45, 0.09);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 140px;
+  position: relative;
+  transition: transform 0.12s;
+}
+
+.file-card:hover {
+  transform: translateY(-2px) scale(1.025);
+  background: #28384c;
+}
+
+.thumb {
+  max-width: 68px;
+  max-height: 68px;
+  border-radius: 8px;
+  margin-bottom: 9px;
+  border: 1.5px solid #293040;
+  background: #181e27;
+  object-fit: contain;
+}
+
+.file-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: #294060;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0 auto 9px auto;
+}
+
+.doc-ext {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+.file-info {
+  font-size: 0.92rem;
+  color: #c9d1d9;
+  word-break: break-all;
+}
+
+.filename {
+  display: block;
+  font-size: 0.95em;
+  color: #fff;
+  margin-bottom: 2px;
+}
+
+.file-ext {
+  display: block;
+  font-size: 0.8em;
+  color: #bdbdbd;
+}
+
+.download-link {
+  display: block;
+  margin-top: 7px;
+  font-size: 0.89em;
+  color: #33f7a8;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.status {
+  background: #253045;
+  border-radius: 6px;
+  padding: 8px 0;
+  color: #aee1b8;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 700px) {
+  .section {
+    max-width: 99vw;
+    padding: 18px 2vw;
+  }
+  .file-grid {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  }
+  .file-card {
+    min-height: 120px;
+    padding: 8px 3px 10px 3px;
+  }
 }

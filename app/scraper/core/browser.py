@@ -6,14 +6,12 @@ import shutil
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 from selenium.webdriver.firefox.service import Service
-from selenium.webdriver.common.proxy import Proxy, ProxyType
 from typing import Optional
-from scraper.utils.proxies import get_random_proxy
 
 logger = get_logger(__name__)
 
 def get_driver() -> Optional[webdriver.Firefox]:
-    """Initializes and returns a Selenium WebDriver instance, with proxy support."""
+    """Initializes and returns a Selenium WebDriver instance (no proxy)."""
     logger.info("🚀 [START] Initializing Selenium WebDriver...")
 
     geckodriver_path: Optional[str] = os.getenv("GECKODRIVER_PATH") or shutil.which("geckodriver")
@@ -29,28 +27,9 @@ def get_driver() -> Optional[webdriver.Firefox]:
     if headless_mode:
         options.add_argument("-headless")
 
-    # [NEW] Proxy support (synchronously try to get a proxy)
-    proxy_cfg = None
-    try:
-        # If async required, refactor this for async context or use a pool of known proxies
-        import asyncio
-        proxy_cfg = asyncio.run(get_random_proxy())
-    except Exception as e:
-        logger.warning(f"Could not obtain proxy: {e}")
-
-    proxy = None
-    if proxy_cfg and "http" in proxy_cfg:
-        proxy = Proxy()
-        proxy.proxy_type = ProxyType.MANUAL
-        proxy.http_proxy = proxy_cfg["http"].replace("http://", "")
-        proxy.ssl_proxy = proxy_cfg["http"].replace("http://", "")
-
     try:
         service = Service(geckodriver_path)
-        driver_kwargs = {"service": service, "options": options}
-        if proxy:
-            driver_kwargs["proxy"] = proxy
-        driver = webdriver.Firefox(**driver_kwargs)
+        driver = webdriver.Firefox(service=service, options=options)
         logger.info(
             f"✅ WebDriver initialized (Firefox {driver.capabilities.get('browserVersion', '?')})"
         )
@@ -63,10 +42,7 @@ def get_driver() -> Optional[webdriver.Firefox]:
             logger.warning("⚠️ Retrying in GUI mode (headless disabled)...")
             options = Options()
             try:
-                driver_kwargs = {"service": service, "options": options}
-                if proxy:
-                    driver_kwargs["proxy"] = proxy
-                driver = webdriver.Firefox(**driver_kwargs)
+                driver = webdriver.Firefox(service=service, options=options)
                 logger.info(
                     f"✅ WebDriver initialized in GUI mode (Firefox {driver.capabilities.get('browserVersion', '?')})"
                 )

@@ -16,7 +16,7 @@
       />
     </header>
 
-    <form method="POST" onsubmit="disableSubmitButton(); return true;">
+    <form method="POST">
       <h1>Scrapegoat</h1>
       <input
         type="text"
@@ -27,11 +27,91 @@
       <button id="submit-btn" type="submit">Extract</button>
     </form>
 
-    {% if text %}
+    {% if crawl_status %}
+    <div class="section">
+      <div class="status">{{ crawl_status }}</div>
+    </div>
+    {% endif %} {% if text %}
     <div class="section">
       <h3>Extracted Page Text</h3>
       <div class="text-content" id="text-output">
         {{ text.replace("\n", "<br />") | safe }}
+      </div>
+    </div>
+    {% endif %} {% if scraped_files.images or scraped_files.documents or
+    scraped_files.others %}
+    <div class="section">
+      <h3>Scraped Files</h3>
+      <div class="file-category-list">
+        {% if scraped_files.images %}
+        <div class="file-category">
+          <h4>Images</h4>
+          <div class="file-grid">
+            {% for img in scraped_files.images %}
+            <div class="file-card">
+              <img
+                src="{{ img.path }}"
+                alt="{{ img.name }}"
+                class="thumb"
+                loading="lazy"
+              />
+              <div class="file-info">
+                <span class="filename">{{ img.name }}</span>
+                <span class="file-ext">{{ img.ext }}</span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %} {% if scraped_files.documents %}
+        <div class="file-category">
+          <h4>Documents</h4>
+          <div class="file-grid">
+            {% for doc in scraped_files.documents %}
+            <div class="file-card">
+              <div class="file-icon">
+                <span class="doc-ext">{{ doc.ext|upper }}</span>
+              </div>
+              <div class="file-info">
+                <span class="filename">{{ doc.name }}</span>
+                <span class="file-ext">{{ doc.ext }}</span>
+              </div>
+              <a
+                href="{{ doc.path }}"
+                class="download-link"
+                target="_blank"
+                rel="noopener"
+                >Download</a
+              >
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %} {% if scraped_files.others %}
+        <div class="file-category">
+          <h4>Other Files</h4>
+          <div class="file-grid">
+            {% for other in scraped_files.others %}
+            <div class="file-card">
+              <div class="file-icon">
+                <span class="doc-ext">{{ other.ext|upper }}</span>
+              </div>
+              <div class="file-info">
+                <span class="filename">{{ other.name }}</span>
+                <span class="file-ext">{{ other.ext }}</span>
+              </div>
+              <a
+                href="{{ other.path }}"
+                class="download-link"
+                target="_blank"
+                rel="noopener"
+                >Download</a
+              >
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
       </div>
     </div>
     {% endif %}
