@@ -84,7 +84,8 @@ async def async_bfs_crawl(
                         count += 1
 
                         if status_callback and status_key:
-                            status_callback(status_key, f"Crawled {count} pages...")
+                            status_callback(status_key, f"{count}/{max_pages}")
+
 
                     except Exception as e:
                         logger.error(f"❌ Error loading {url}: {e}", exc_info=True)

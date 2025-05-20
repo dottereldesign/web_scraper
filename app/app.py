@@ -1,7 +1,6 @@
 # app.py
-
 import os
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify, session, send_from_directory, redirect, url_for, flash
 from dotenv import load_dotenv
 from threading import Thread, Lock
 from time import time
@@ -9,7 +8,7 @@ from typing import Optional, Any, Dict, List
 from scraper.core.crawler import async_bfs_crawl
 from scraper.logging_config import get_logger
 import asyncio
-from flask import send_from_directory
+from flask import jsonify
 
 load_dotenv()
 SECRET_KEY: str = os.getenv("FLASK_SECRET", "fallback_secret_key")
@@ -41,14 +40,12 @@ def run_crawl(url: str, max_pages: int, task_id: str) -> None:
         set_crawl_status(task_id, f"Error during crawl: {e}")
 
 def list_scraped_files(domain: str) -> Dict[str, List[Dict[str, str]]]:
-    """List and categorize files scraped for a given domain."""
     base_dir = os.path.join("extracted_data", domain)
     categories = {
         "images": [],
         "documents": [],
         "others": [],
     }
-    # Image and doc extensions for display logic
     img_exts = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
     doc_exts = {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt", ".zip", ".rar"}
     for cat in ["images", "files"]:
@@ -59,7 +56,7 @@ def list_scraped_files(domain: str) -> Dict[str, List[Dict[str, str]]]:
                 file_info = {
                     "name": fname,
                     "ext": ext,
-                    "path": f"/{dir_path}/{fname}", # Flask static serving (see NOTE below)
+                    "path": f"/{dir_path}/{fname}",
                 }
                 if ext in img_exts and cat == "images":
                     categories["images"].append(file_info)
@@ -73,51 +70,87 @@ def list_scraped_files(domain: str) -> Dict[str, List[Dict[str, str]]]:
 def extracted_data(filename):
     return send_from_directory('extracted_data', filename)
 
+@app.route("/status/<task_id>")
+def crawl_status_api(task_id):
+    status = get_crawl_status(task_id) or ""
+    # Try to extract progress numbers, e.g. "Crawled 5 pages of 50..."
+    import re
+    match = re.search(r"Crawled (\d+)[^\d]+(\d+)", status)
+    progress = {}
+    percent = 0
+    if match:
+        try:
+            cur = int(match.group(1))
+            total = int(match.group(2))
+            percent = int(cur / total * 100)
+            progress = {"cur": cur, "total": total, "percent": percent}
+        except Exception:
+            pass
+    finished = False
+    status_lc = status.lower()
+    if "finished" in status_lc or "error" in status_lc:
+        finished = True
+        percent = 100
+    progress['percent'] = percent
+    return jsonify({"status": status, "finished": finished, "progress": progress})
+
+
 @app.route("/", methods=["GET", "POST"])
 def index():
-    error: Optional[str] = None
-    status: Optional[str] = None
-    extracted_text: Optional[str] = None
-    task_id: Optional[str] = None
+    error = None
+    status = None
+    extracted_text = None
+    task_id = None
     scraped_files = {}
 
     if request.method == "POST":
-        url: Optional[str] = request.form.get("url")
-        last_crawl_any: Any = request.cookies.get("last_crawl", 0)
+        url = request.form.get("url")
+        last_crawl_any = request.cookies.get("last_crawl", 0)
         try:
-            last_crawl: float = float(last_crawl_any)
+            last_crawl = float(last_crawl_any)
         except (ValueError, TypeError):
             last_crawl = 0.0
-        now: float = time()
+        now = time()
         task_id = f"crawl_{int(now*1000)}_{os.urandom(2).hex()}"
 
         if now - last_crawl < RATE_LIMIT_SECONDS:
             error = f"Please wait {int(RATE_LIMIT_SECONDS - (now - last_crawl))} seconds before crawling again."
-        elif url:
+            flash(error, "error")
+            return redirect(url_for("index"))
+
+        if url:
             set_crawl_status(task_id, "Crawl started...")
             t = Thread(target=run_crawl, args=(url, 50, task_id))
             t.daemon = True
             t.start()
-            status = f"Crawling started in background. Task ID: {task_id} (Refresh to update status.)"
+            from urllib.parse import urlparse
+            domain_just_crawled = urlparse(url).netloc or url
+            session["last_domain"] = domain_just_crawled
+            session["last_task_id"] = task_id
+            return redirect(url_for("index", task_id=task_id))  # PRG pattern!
 
-    # Detect last crawled domain for display
-    last_domain = None
+    # GET logic
+    # Read task_id from URL args, or session
+    task_id = request.args.get("task_id") or session.get("last_task_id")
+    domain_to_display = session.get("last_domain")
+
     extracted_dirs = [
         d for d in os.listdir("extracted_data")
         if os.path.isdir(os.path.join("extracted_data", d))
     ]
-    if extracted_dirs:
-        last_domain = sorted(extracted_dirs)[-1]
-        scraped_files = list_scraped_files(last_domain)
-        # Display latest text
-        txt_dir = os.path.join("extracted_data", last_domain, "text")
+    if not domain_to_display and extracted_dirs:
+        domain_to_display = sorted(extracted_dirs)[-1]
+
+    if domain_to_display and domain_to_display in extracted_dirs:
+        scraped_files = list_scraped_files(domain_to_display)
+        txt_dir = os.path.join("extracted_data", domain_to_display, "text")
         if os.path.exists(txt_dir):
             txt_files = [f for f in os.listdir(txt_dir) if f.endswith(".txt")]
             if txt_files:
                 with open(os.path.join(txt_dir, sorted(txt_files)[-1]), "r", encoding="utf-8") as f:
                     extracted_text = f.read()
 
-    crawl_status: Optional[str] = None
+    crawl_status = None
     if task_id:
         crawl_status = get_crawl_status(task_id)
     else:
@@ -125,6 +158,7 @@ def index():
             if crawl_status_store:
                 last_task = sorted(crawl_status_store.keys())[-1]
                 crawl_status = crawl_status_store[last_task]
+                task_id = last_task
 
     return render_template(
         "index.html",
@@ -132,7 +166,8 @@ def index():
         status=status,
         crawl_status=crawl_status,
         text=extracted_text,
-        scraped_files=scraped_files
+        scraped_files=scraped_files,
+        task_id=task_id,
     )
 
 if __name__ == "__main__":
