@@ -5,10 +5,9 @@ from dotenv import load_dotenv
 from threading import Thread, Lock
 from time import time
 from typing import Optional, Any, Dict, List
-from scraper.core.crawler import async_bfs_crawl
+from scraper.config import SCRAPER_CLS  # <-- Use config-based selector
 from scraper.logging_config import get_logger
 import asyncio
-from flask import jsonify
 
 load_dotenv()
 SECRET_KEY: str = os.getenv("FLASK_SECRET", "fallback_secret_key")
@@ -33,7 +32,8 @@ def get_crawl_status(task_id: str) -> Optional[str]:
 def run_crawl(url: str, max_pages: int, task_id: str) -> None:
     try:
         set_crawl_status(task_id, "Crawl started...")
-        asyncio.run(async_bfs_crawl(url, max_pages=max_pages, status_key=task_id, status_callback=set_crawl_status))
+        scraper = SCRAPER_CLS(max_pages=max_pages)
+        asyncio.run(scraper.crawl(url, status_key=task_id, status_callback=set_crawl_status))
         set_crawl_status(task_id, "Crawl finished.")
     except Exception as e:
         logger.error(f"Crawl failed: {e}", exc_info=True)
@@ -73,7 +73,6 @@ def extracted_data(filename):
 @app.route("/status/<task_id>")
 def crawl_status_api(task_id):
     status = get_crawl_status(task_id) or ""
-    # Try to extract progress numbers, e.g. "Crawled 5 pages of 50..."
     import re
     match = re.search(r"Crawled (\d+)[^\d]+(\d+)", status)
     progress = {}
@@ -93,7 +92,6 @@ def crawl_status_api(task_id):
         percent = 100
     progress['percent'] = percent
     return jsonify({"status": status, "finished": finished, "progress": progress})
-
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -130,7 +128,6 @@ def index():
             return redirect(url_for("index", task_id=task_id))  # PRG pattern!
 
     # GET logic
-    # Read task_id from URL args, or session
     task_id = request.args.get("task_id") or session.get("last_task_id")
     domain_to_display = session.get("last_domain")
 
