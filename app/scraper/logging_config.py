@@ -2,10 +2,11 @@
 import logging
 from typing import Optional
 
+
 def get_logger(name: Optional[str] = None) -> logging.Logger:
     """
     Returns a logger instance with the given name. Sets up basic stream handler if not already configured.
-    
+
     Args:
         name (Optional[str]): Name for the logger. If None, gets the root logger.
     Returns:

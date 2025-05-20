@@ -1,20 +1,29 @@
 # scraper/utils/headers.py
-from scraper.logging_config import logging
-from typing import Dict
 import random
+from typing import Dict
+
 from fake_useragent import UserAgent  # type: ignore
 
+from scraper.logging_config import logging
 
-# ✅ Try initializing UserAgent
+# Try initializing UserAgent pool
 try:
     ua = UserAgent()
     USER_AGENTS = [ua.random for _ in range(20)]
 except Exception as e:
     logging.error(f"❌ Failed to initialize UserAgent: {e}")
     USER_AGENTS = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/109.0",
+        (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/122.0.0.0 Safari/537.36"
+        ),
+        (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        ("Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:109.0) " "Gecko/20100101 Firefox/109.0"),
     ]
 
 

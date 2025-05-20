@@ -1,7 +1,7 @@
 # scraper/core/base.py
-
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Callable
+from typing import Callable, Dict, Optional
+
 
 class BaseScraper(ABC):
     def __init__(self, max_pages: int = 50, headers: Optional[Dict[str, str]] = None):

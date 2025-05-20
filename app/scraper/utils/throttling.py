@@ -1,9 +1,9 @@
 # scraper/utils/throttling.py
-from scraper.logging_config import logging
-
+import asyncio
 import random
 import time
-import asyncio
+
+from scraper.logging_config import logging
 
 last_sleep_time = 1.5  # ✅ Base delay for normal requests
 
@@ -46,7 +46,5 @@ async def async_random_throttle(status_code=None):
         last_sleep_time = base_delay
 
     sleep_time = last_sleep_time + jitter
-    logging.info(
-        f"⏳ Async Throttling request: Sleeping for {sleep_time:.2f} seconds..."
-    )
+    logging.info(f"⏳ Async Throttling request: Sleeping for {sleep_time:.2f} seconds...")
     await asyncio.sleep(sleep_time)

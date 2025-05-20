@@ -1,16 +1,19 @@
 # scraper/core/extract.py
-from typing import Optional, Union, Set, List
 import asyncio
 import re
+from typing import List, Optional, Set, Union
 
 from bs4 import BeautifulSoup, Tag
+from playwright.async_api import Error as PlaywrightError
 from playwright.async_api import async_playwright
 
-from scraper.logging_config import get_logger
-from scraper.utils import get_random_headers, format_url
 from scraper.core.storage import save_text
+from scraper.logging_config import get_logger
+from scraper.utils.headers import get_random_headers
+from scraper.utils.url_utils import format_url
 
 logger = get_logger(__name__)
+
 
 async def async_extract_text(url: str, domain: Optional[str] = None) -> Union[str, None]:
     """
@@ -40,12 +43,15 @@ async def async_extract_text(url: str, domain: Optional[str] = None) -> Union[st
             save_text(domain, url, extracted_text)
             return extracted_text
 
+        except PlaywrightError as pe:
+            logger.error(f"❌ Playwright error extracting text: {pe}", exc_info=True)
+            return f"Error extracting text: {pe}"
         except Exception as e:
             logger.error(f"❌ Error extracting text: {e}", exc_info=True)
             return f"Error extracting text: {e}"
-
         finally:
             await browser.close()
+
 
 def parse_page_text(html: str) -> str:
     """
@@ -61,10 +67,20 @@ def parse_page_text(html: str) -> str:
 
     logger.info("🧹 Removing unnecessary elements...")
     try:
-        for tag in soup.find_all([
-            "nav", "header", "footer", "aside", "script", "style",
-            "form", "button", "iframe", "noscript",
-        ]):
+        for tag in soup.find_all(
+            [
+                "nav",
+                "header",
+                "footer",
+                "aside",
+                "script",
+                "style",
+                "form",
+                "button",
+                "iframe",
+                "noscript",
+            ]
+        ):
             tag.decompose()
     except Exception as e:
         logger.error(f"❌ Error while removing sections: {e}")
@@ -80,9 +96,23 @@ def parse_page_text(html: str) -> str:
             return "Error: No meaningful text found on the page."
 
         text_elements = [
-            el for el in main_content.find_all([
-                "p", "h1", "h2", "h3", "h4", "h5", "h6", "li", "td", "th", "span", "div"
-            ])
+            el
+            for el in main_content.find_all(
+                [
+                    "p",
+                    "h1",
+                    "h2",
+                    "h3",
+                    "h4",
+                    "h5",
+                    "h6",
+                    "li",
+                    "td",
+                    "th",
+                    "span",
+                    "div",
+                ]
+            )
             if isinstance(el, Tag)
         ]
         logger.info(f"📄 Found {len(text_elements)} text elements in main content.")
@@ -99,9 +129,7 @@ def parse_page_text(html: str) -> str:
 
             if any(
                 keyword in extracted_text.lower()
-                for keyword in [
-                    "file size:", "file type:", "download file", "pdf"
-                ]
+                for keyword in ["file size:", "file type:", "download file", "pdf"]
             ):
                 continue
 
@@ -121,7 +149,11 @@ def parse_page_text(html: str) -> str:
             seen_paragraphs.add(normalized_text)
 
         # Post-processing for duplicate blocks and "Contact" at end
-        if len(text_list) > 1 and text_list[0][:30] == text_list[1][:30] and abs(len(text_list[0]) - len(text_list[1])) < 20:
+        if (
+            len(text_list) > 1
+            and text_list[0][:30] == text_list[1][:30]
+            and abs(len(text_list[0]) - len(text_list[1])) < 20
+        ):
             logger.info("🚀 Removing first duplicated block, keeping formatted version.")
             text_list.pop(0)
 

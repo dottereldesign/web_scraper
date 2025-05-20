@@ -1,13 +1,26 @@
 # app.py
+import asyncio
 import os
-from flask import Flask, render_template, request, jsonify, session, send_from_directory, redirect, url_for, flash
-from dotenv import load_dotenv
-from threading import Thread, Lock
+from threading import Lock, Thread
 from time import time
-from typing import Optional, Any, Dict, List
+from typing import Dict, List, Optional
+
+from dotenv import load_dotenv
+from flask import (
+    Flask,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    session,
+    url_for,
+)
+
 from scraper.config import SCRAPER_CLS  # <-- Use config-based selector
 from scraper.logging_config import get_logger
-import asyncio
+from scraper.utils.url_utils import format_url, is_valid_url  # NEW: import
 
 load_dotenv()
 SECRET_KEY: str = os.getenv("FLASK_SECRET", "fallback_secret_key")
@@ -21,13 +34,16 @@ RATE_LIMIT_SECONDS: int = 20
 crawl_status_store: Dict[str, str] = {}
 crawl_status_lock = Lock()
 
+
 def set_crawl_status(task_id: str, status: str):
     with crawl_status_lock:
         crawl_status_store[task_id] = status
 
+
 def get_crawl_status(task_id: str) -> Optional[str]:
     with crawl_status_lock:
         return crawl_status_store.get(task_id)
+
 
 def run_crawl(url: str, max_pages: int, task_id: str) -> None:
     try:
@@ -39,6 +55,7 @@ def run_crawl(url: str, max_pages: int, task_id: str) -> None:
         logger.error(f"Crawl failed: {e}", exc_info=True)
         set_crawl_status(task_id, f"Error during crawl: {e}")
 
+
 def list_scraped_files(domain: str) -> Dict[str, List[Dict[str, str]]]:
     base_dir = os.path.join("extracted_data", domain)
     categories = {
@@ -47,7 +64,18 @@ def list_scraped_files(domain: str) -> Dict[str, List[Dict[str, str]]]:
         "others": [],
     }
     img_exts = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
-    doc_exts = {".pdf", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx", ".txt", ".zip", ".rar"}
+    doc_exts = {
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".ppt",
+        ".pptx",
+        ".xls",
+        ".xlsx",
+        ".txt",
+        ".zip",
+        ".rar",
+    }
     for cat in ["images", "files"]:
         dir_path = os.path.join(base_dir, cat)
         if os.path.exists(dir_path):
@@ -66,14 +94,17 @@ def list_scraped_files(domain: str) -> Dict[str, List[Dict[str, str]]]:
                     categories["others"].append(file_info)
     return categories
 
-@app.route('/extracted_data/<path:filename>')
+
+@app.route("/extracted_data/<path:filename>")
 def extracted_data(filename):
-    return send_from_directory('extracted_data', filename)
+    return send_from_directory("extracted_data", filename)
+
 
 @app.route("/status/<task_id>")
 def crawl_status_api(task_id):
     status = get_crawl_status(task_id) or ""
     import re
+
     match = re.search(r"Crawled (\d+)[^\d]+(\d+)", status)
     progress = {}
     percent = 0
@@ -90,8 +121,9 @@ def crawl_status_api(task_id):
     if "finished" in status_lc or "error" in status_lc:
         finished = True
         percent = 100
-    progress['percent'] = percent
+    progress["percent"] = percent
     return jsonify({"status": status, "finished": finished, "progress": progress})
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -102,7 +134,14 @@ def index():
     scraped_files = {}
 
     if request.method == "POST":
-        url = request.form.get("url")
+        url = request.form.get("url", "").strip()
+        # --- NEW: Validate URL ---
+        if not is_valid_url(url):
+            error = "Please enter a valid URL (e.g., example.com or https://example.com)."
+            flash(error, "error")
+            return redirect(url_for("index"))
+        url = format_url(url)
+
         last_crawl_any = request.cookies.get("last_crawl", 0)
         try:
             last_crawl = float(last_crawl_any)
@@ -112,28 +151,30 @@ def index():
         task_id = f"crawl_{int(now*1000)}_{os.urandom(2).hex()}"
 
         if now - last_crawl < RATE_LIMIT_SECONDS:
-            error = f"Please wait {int(RATE_LIMIT_SECONDS - (now - last_crawl))} seconds before crawling again."
+            error = (
+                f"Please wait {int(RATE_LIMIT_SECONDS - (now - last_crawl))} "
+                "seconds before crawling again."
+            )
             flash(error, "error")
             return redirect(url_for("index"))
 
-        if url:
-            set_crawl_status(task_id, "Crawl started...")
-            t = Thread(target=run_crawl, args=(url, 50, task_id))
-            t.daemon = True
-            t.start()
-            from urllib.parse import urlparse
-            domain_just_crawled = urlparse(url).netloc or url
-            session["last_domain"] = domain_just_crawled
-            session["last_task_id"] = task_id
-            return redirect(url_for("index", task_id=task_id))  # PRG pattern!
+        set_crawl_status(task_id, "Crawl started...")
+        t = Thread(target=run_crawl, args=(url, 50, task_id))
+        t.daemon = True
+        t.start()
+        from urllib.parse import urlparse
+
+        domain_just_crawled = urlparse(url).netloc or url
+        session["last_domain"] = domain_just_crawled
+        session["last_task_id"] = task_id
+        return redirect(url_for("index", task_id=task_id))  # PRG pattern!
 
     # GET logic
     task_id = request.args.get("task_id") or session.get("last_task_id")
     domain_to_display = session.get("last_domain")
 
     extracted_dirs = [
-        d for d in os.listdir("extracted_data")
-        if os.path.isdir(os.path.join("extracted_data", d))
+        d for d in os.listdir("extracted_data") if os.path.isdir(os.path.join("extracted_data", d))
     ]
     if not domain_to_display and extracted_dirs:
         domain_to_display = sorted(extracted_dirs)[-1]
@@ -166,6 +207,7 @@ def index():
         scraped_files=scraped_files,
         task_id=task_id,
     )
+
 
 if __name__ == "__main__":
     app.run(debug=True)
