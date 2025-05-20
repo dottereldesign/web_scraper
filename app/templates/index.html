@@ -98,8 +98,52 @@
     <div class="section">
       <h3>Scraped Files</h3>
       <div class="file-category-list">
-        <!-- (images, documents, others, unchanged) -->
-        <!-- ... -->
+        {% if scraped_files.images %}
+        <div class="file-category images">
+          <h4>Images</h4>
+          <div class="image-list">
+            {% for image in scraped_files.images %}
+            <a href="{{ image.path }}" target="_blank">
+              <img
+                src="{{ image.path }}"
+                alt="{{ image.name }}"
+                style="
+                  max-width: 120px;
+                  max-height: 120px;
+                  margin: 4px;
+                  border-radius: 8px;
+                  box-shadow: 0 1px 5px #888;
+                "
+              />
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %} {% if scraped_files.documents %}
+        <div class="file-category documents">
+          <h4>Documents</h4>
+          <ul>
+            {% for doc in scraped_files.documents %}
+            <li>
+              <a href="{{ doc.path }}" target="_blank">{{ doc.name }}</a>
+              <span style="color: #888">({{ doc.ext }})</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %} {% if scraped_files.others %}
+        <div class="file-category others">
+          <h4>Other Files</h4>
+          <ul>
+            {% for other in scraped_files.others %}
+            <li>
+              <a href="{{ other.path }}" target="_blank">{{ other.name }}</a>
+              <span style="color: #888">({{ other.ext }})</span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
       </div>
     </div>
     {% endif %}
