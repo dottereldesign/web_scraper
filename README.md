@@ -72,8 +72,8 @@ Try scraping these public demo/test sites:
 
 - [ ] **Per-user scrape history**  
        Save and display each user's previous scrape sessions.
-- [ ] **Progress polling / AJAX refresh**  
-       Use live status updates so users don’t have to refresh manually.
+- [COMPLETE] **Progress polling / AJAX refresh**  
+   Use live status updates so users don’t have to refresh manually.
 - [ ] **Advanced crawl controls**
   - Set depth/number of pages
   - Blacklist/whitelist URLs

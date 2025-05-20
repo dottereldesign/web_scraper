@@ -4,6 +4,7 @@ from scraper.logging_config import get_logger
 import requests
 from urllib.parse import urlparse
 from typing import Optional
+from scraper.utils.headers import get_random_headers  # Add this import at top
 
 logger = get_logger(__name__)
 
@@ -28,7 +29,8 @@ def save_text(domain: str, url: str, text: str) -> None:
 def download_file(url: str, file_path: str) -> None:
     """Helper function to download a file."""
     try:
-        response = requests.get(url, stream=True, timeout=10)
+        headers = get_random_headers()  # <-- NEW LINE
+        response = requests.get(url, headers=headers, stream=True, timeout=10)  # <-- Use headers
         if response.status_code == 200:
             with open(file_path, "wb") as f:
                 for chunk in response.iter_content(1024):
