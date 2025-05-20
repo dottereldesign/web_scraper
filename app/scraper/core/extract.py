@@ -14,7 +14,6 @@ from scraper.utils.url_utils import format_url
 
 logger = get_logger(__name__)
 
-
 async def async_extract_text(url: str, domain: Optional[str] = None) -> Union[str, None]:
     """
     Extract text from a webpage asynchronously using Playwright, save it using unified save_text().
@@ -26,7 +25,8 @@ async def async_extract_text(url: str, domain: Optional[str] = None) -> Union[st
         domain = url.split("//")[-1].split("/")[0]
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        # STEP 1: HEADFUL MODE (headless=False)
+        browser = await p.chromium.launch(headless=False)  # <---- CHANGED
         context = await browser.new_context(extra_http_headers=get_random_headers())
         page = await context.new_page()
 
@@ -51,7 +51,6 @@ async def async_extract_text(url: str, domain: Optional[str] = None) -> Union[st
             return f"Error extracting text: {e}"
         finally:
             await browser.close()
-
 
 def parse_page_text(html: str) -> str:
     """

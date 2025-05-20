@@ -18,7 +18,6 @@ logger = get_logger(__name__)
 MAX_CONCURRENT_BROWSERS = 2
 _browser_semaphore = asyncio.Semaphore(MAX_CONCURRENT_BROWSERS)
 
-
 class PlaywrightScraper(BaseScraper):
     async def crawl(
         self,
@@ -40,7 +39,8 @@ class PlaywrightScraper(BaseScraper):
 
         async with _browser_semaphore:
             async with async_playwright() as p:
-                browser = await p.chromium.launch(headless=True)
+                # STEP 1: HEADFUL MODE (headless=False)
+                browser = await p.chromium.launch(headless=False)  # <---- CHANGED
                 context = await browser.new_context(
                     extra_http_headers=self.headers or get_random_headers()
                 )
