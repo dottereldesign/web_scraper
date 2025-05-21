@@ -3,7 +3,8 @@ import asyncio
 from collections import deque
 from typing import Callable, Dict, List, Optional, Set
 from urllib.parse import urljoin, urlparse
-
+import json
+import re
 from playwright.async_api import async_playwright, Error as PlaywrightError # type: ignore
 from playwright.async_api import async_playwright # type: ignore
 

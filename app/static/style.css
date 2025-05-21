@@ -276,3 +276,9 @@ body.light-mode .download-link {
     padding: 8px 3px 10px 3px;
   }
 }
+
+ul {
+  list-style-type: none; /* Removes bullet points */
+  padding-left: 0; /* Removes default left indent */
+  margin-left: 0; /* (Optional) Removes margin */
+}

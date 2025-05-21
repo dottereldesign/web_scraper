@@ -3,21 +3,22 @@ import logging
 from typing import Optional
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:
-    """
-    Returns a logger instance with the given name, using a friendly, readable formatter.
-
-    Args:
-        name (Optional[str]): Logger name. If None, gets the root logger.
-    Returns:
-        logging.Logger: Configured logger instance.
-    """
     logger = logging.getLogger(name)
-    if not logger.handlers:
-        handler = logging.StreamHandler()
-        # Unified time, level, name, message style (matches your other logs)
-        formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
+    # Remove ALL handlers so we don't stack up duplicates
+    for h in logger.handlers[:]:
+        logger.removeHandler(h)
+    # Add our preferred handler every time
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    # Set level to DEBUG for max output (change to INFO if too noisy)
+    logger.setLevel(logging.DEBUG)
+    # Let logs propagate up, unless this is the root
+    if name:
+        logger.propagate = True
+    else:
         logger.propagate = False
     return logger

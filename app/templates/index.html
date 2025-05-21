@@ -1,5 +1,4 @@
 <!-- templates/index.html -->
-<!-- templates/index.html -->
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -59,7 +58,28 @@
         ></div>
       </div>
     </div>
-    {% endif %} {% if text %}
+    {% endif %} {# LLM Categorized Content or Fallback to Plain Text #} {% if
+    categorized %}
+    <div class="section">
+      <h3>Categorized Page Content</h3>
+      {% for key, value in categorized.items() %}
+      <div class="category-block">
+        <h4>{{ key }}</h4>
+        {% if value is string %}
+        <p>{{ value }}</p>
+        {% elif value is sequence %}
+        <ul>
+          {% for item in value %}
+          <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <pre>{{ value | tojson }}</pre>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% elif text %}
     <div class="section">
       <h3>Extracted Page Text</h3>
       <div class="text-content" id="text-output">
