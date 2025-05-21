@@ -85,15 +85,26 @@ try_write_file(os.path.join(PROJECT_TMP_DIR, "llm_write_test.txt"), "test123")
 
 def categorize_text_with_llama3(text: str) -> Dict[str, Any]:
     prompt = f"""
-Extract ONLY the main navigation/menu links from the following website text.
-- Output a single JSON object with a single key: "Quick-links" (array of link titles, in order).
-- Do NOT include any explanations, extra text, headings, or formatting—ONLY output the JSON object, nothing else.
-- Exclude buttons, footers, sponsors, and any non-navigation/menu items.
-- If no links are found, output: {{"Quick-links": []}}
+Extract ONLY the following two things from the provided website text:
+
+1. The main navigation or menu links.
+    - Output these as a JSON array under the key "Quick-links" (in order of appearance).
+    - Only include actual navigation/menu items. Exclude buttons, footer, sponsor, or slogan text.
+
+2. The main descriptive text block from the body of the page.
+    - This is sometimes called "Main Content", "Introduction", "Intro", "Welcome Message", "Hero Content", "Hero Section", or "Overview".
+    - This is typically a paragraph or set of paragraphs that introduces the website or page, welcomes visitors, or summarizes what the page/site is about.
+    - Output this under the key "Main text block" as a single string or array of paragraphs.
+
+Your output must be a single JSON object with these two keys: "Quick-links" and "Main text block".
+- Do **not** include any extra keys, explanations, or formatting—**only output the JSON object**.
+- If either is missing, output an empty array (for "Quick-links") or an empty string (for "Main text block").
 
 Website text:
 {text}
 """
+    # ... rest of your function ...
+
     # Log input to file (to project tmp, fallback to current dir)
     logger.info("📝 Full page text sent to LLM (length: %d)", len(text))
     try_write_file(os.path.join(PROJECT_TMP_DIR, "llm_last_input.txt"), text)
