@@ -1,27 +1,59 @@
 /* static/style.css */
+:root {
+  --bg: #101214;
+  --text: #fff;
+  --input-bg: #161c22;
+  --section-bg: #161c22;
+  --text-content-bg: #1e293b;
+  --progress-bg: #eee;
+  --progress-bar: #37a;
+  --border: #bbb;
+  --status-bg: #253045;
+  --status-text: #aee1b8;
+}
+
+body {
+  font-family: "Arial", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  text-align: center;
+  margin: 40px;
+}
+
+/* Light mode overrides */
+body.light-mode {
+  --bg: #f5f6fa;
+  --text: #222;
+  --input-bg: #fff;
+  --section-bg: #fff;
+  --text-content-bg: #f5f6fa;
+  --progress-bg: #dbeafe;
+  --progress-bar: #0a74da;
+  --border: #b6c3d1;
+  --status-bg: #e6fff4;
+  --status-text: #2c4b4b;
+}
+
 * {
   font-family: Inter;
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  color: #000;
+  color: inherit;
   border-radius: 8px;
 }
 
-body {
-  font-family: "Arial", sans-serif;
-  background: #101214;
-
-  text-align: center;
-  margin: 40px;
+.logo {
+  width: min(100%, 200px);
+  height: auto;
 }
 
 h1 {
-  color: white;
+  color: var(--text);
 }
 
 form {
-  background-color: #101214;
+  background-color: var(--bg);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -33,9 +65,11 @@ button {
   width: min(100%, 400px);
   margin: 10px;
   font-size: 16px;
-  border: 1px solid rgb(155, 155, 155);
+  border: 1px solid var(--border);
   margin: 0 auto;
   height: 50px;
+  background: var(--input-bg);
+  color: var(--text);
 }
 button {
   font-weight: 600;
@@ -52,8 +86,8 @@ button:hover {
   margin-top: 20px;
   padding: 10px;
   border: 1px solid #ddd;
-  color: white;
-  background: #1e293b;
+  color: var(--text);
+  background: var(--text-content-bg);
   white-space: pre-wrap;
 }
 
@@ -63,10 +97,10 @@ button:hover {
 .section {
   margin: 24px auto;
   max-width: 700px;
-  background: #161c22;
+  background: var(--section-bg);
   border-radius: 12px;
   padding: 24px 16px;
-  color: #fff;
+  color: var(--text);
   box-shadow: 0 2px 12px 0 rgba(20, 30, 50, 0.12);
 }
 .file-category {
@@ -75,7 +109,7 @@ button:hover {
 .file-category h4 {
   font-size: 1.1rem;
   margin-bottom: 6px;
-  color: #fff;
+  color: var(--text);
   text-align: left;
   font-weight: 600;
 }
@@ -101,9 +135,16 @@ button:hover {
   transition: transform 0.12s;
 }
 
+body.light-mode .file-card {
+  background: #f0f4fa;
+}
+
 .file-card:hover {
   transform: translateY(-2px) scale(1.025);
   background: #28384c;
+}
+body.light-mode .file-card:hover {
+  background: #e2eaff;
 }
 
 .thumb {
@@ -114,6 +155,11 @@ button:hover {
   border: 1.5px solid #293040;
   background: #181e27;
   object-fit: contain;
+}
+
+body.light-mode .thumb {
+  border: 1.5px solid #b6c3d1;
+  background: #eaf1fa;
 }
 
 .file-icon {
@@ -130,6 +176,11 @@ button:hover {
   margin: 0 auto 9px auto;
 }
 
+body.light-mode .file-icon {
+  background: #cad8ef;
+  color: #223;
+}
+
 .doc-ext {
   font-size: 1.05rem;
   font-weight: 700;
@@ -141,11 +192,14 @@ button:hover {
   color: #c9d1d9;
   word-break: break-all;
 }
+body.light-mode .file-info {
+  color: #223;
+}
 
 .filename {
   display: block;
   font-size: 0.95em;
-  color: #fff;
+  color: var(--text);
   margin-bottom: 2px;
 }
 
@@ -153,6 +207,10 @@ button:hover {
   display: block;
   font-size: 0.8em;
   color: #bdbdbd;
+}
+
+body.light-mode .file-ext {
+  color: #7b8ba0;
 }
 
 .download-link {
@@ -163,14 +221,45 @@ button:hover {
   text-decoration: underline;
   word-break: break-all;
 }
+body.light-mode .download-link {
+  color: #2494e4;
+}
 
 .status {
-  background: #253045;
+  background: var(--status-bg);
   border-radius: 6px;
   padding: 8px 0;
-  color: #aee1b8;
+  color: var(--status-text);
   font-weight: 500;
   margin-bottom: 16px;
+}
+
+/* Progress bar colors */
+.progress-bar-bg {
+  background: var(--progress-bg) !important;
+}
+#progress-bar {
+  background: var(--progress-bar) !important;
+}
+
+/* Theme toggle button */
+.theme-toggle {
+  position: absolute;
+  top: 16px;
+  right: 28px;
+  z-index: 99;
+}
+#theme-toggle-btn {
+  font-size: 1.5em;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  transition: color 0.2s;
+  outline: none;
+}
+#theme-toggle-btn:active {
+  transform: scale(0.92);
 }
 
 /* Mobile responsiveness */

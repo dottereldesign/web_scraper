@@ -4,8 +4,10 @@ import re
 from typing import List, Optional, Set, Union
 
 from bs4 import BeautifulSoup, Tag
-from playwright.async_api import Error as PlaywrightError
-from playwright.async_api import async_playwright
+from playwright.async_api import async_playwright, Error as PlaywrightError # type: ignore
+
+from playwright.async_api import async_playwright # type: ignore
+
 
 from scraper.core.storage import save_text
 from scraper.logging_config import get_logger
@@ -25,8 +27,7 @@ async def async_extract_text(url: str, domain: Optional[str] = None) -> Union[st
         domain = url.split("//")[-1].split("/")[0]
 
     async with async_playwright() as p:
-        # STEP 1: HEADFUL MODE (headless=False)
-        browser = await p.chromium.launch(headless=False)  # <---- CHANGED
+        browser = await p.chromium.launch(headless=False)
         context = await browser.new_context(extra_http_headers=get_random_headers())
         page = await context.new_page()
 

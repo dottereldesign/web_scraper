@@ -2,25 +2,22 @@
 import logging
 from typing import Optional
 
-
 def get_logger(name: Optional[str] = None) -> logging.Logger:
     """
-    Returns a logger instance with the given name. Sets up basic stream handler
-    if not already configured.
+    Returns a logger instance with the given name, using a friendly, readable formatter.
 
     Args:
-        name (Optional[str]): Name for the logger. If None, gets the root logger.
+        name (Optional[str]): Logger name. If None, gets the root logger.
     Returns:
         logging.Logger: Configured logger instance.
     """
     logger = logging.getLogger(name)
     if not logger.handlers:
         handler = logging.StreamHandler()
+        # Unified time, level, name, message style (matches your other logs)
         formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
+        logger.propagate = False
     return logger
-
-
-# Usage everywhere: `from scraper.logging_config import get_logger`

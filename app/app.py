@@ -1,4 +1,22 @@
 # app.py
+import logging
+
+# --- Set custom Werkzeug log format with emoji ---
+def set_werkzeug_log_format():
+    werkzeug_logger = logging.getLogger('werkzeug')
+    handler = logging.StreamHandler()
+    formatter = logging.Formatter(
+        '%(asctime)s | %(levelname)s | %(name)s | %(message)s'
+    )
+    handler.setFormatter(formatter)
+    werkzeug_logger.handlers.clear()
+    werkzeug_logger.addHandler(handler)
+    werkzeug_logger.setLevel(logging.WARNING)  # Only show WARNING and above
+    werkzeug_logger.propagate = False
+
+set_werkzeug_log_format()
+# --- End custom log setup ---
+
 import asyncio
 import os
 from threading import Lock, Thread
@@ -18,9 +36,9 @@ from flask import (
     url_for,
 )
 
-from scraper.config import SCRAPER_CLS  # <-- Use config-based selector
+from scraper.config import SCRAPER_CLS
 from scraper.logging_config import get_logger
-from scraper.utils.url_utils import format_url, is_valid_url  # NEW: import
+from scraper.utils.url_utils import format_url, is_valid_url
 
 load_dotenv()
 SECRET_KEY: str = os.getenv("FLASK_SECRET", "fallback_secret_key")
@@ -52,7 +70,7 @@ def run_crawl(url: str, max_pages: int, task_id: str) -> None:
         asyncio.run(scraper.crawl(url, status_key=task_id, status_callback=set_crawl_status))
         set_crawl_status(task_id, "Crawl finished.")
     except Exception as e:
-        logger.error(f"Crawl failed: {e}", exc_info=True)
+        logger.error(f"❌ Crawl failed: {e}", exc_info=True)
         set_crawl_status(task_id, f"Error during crawl: {e}")
 
 
@@ -135,7 +153,6 @@ def index():
 
     if request.method == "POST":
         url = request.form.get("url", "").strip()
-        # --- NEW: Validate URL ---
         if not is_valid_url(url):
             error = "Please enter a valid URL (e.g., example.com or https://example.com)."
             flash(error, "error")
