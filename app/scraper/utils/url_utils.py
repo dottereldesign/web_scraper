@@ -1,4 +1,4 @@
-# scraper/utils/url_utils.py
+# app/scraper/utils/url_utils.py
 import re
 from urllib.parse import urlparse
 

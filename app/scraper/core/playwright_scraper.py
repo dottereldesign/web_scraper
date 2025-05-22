@@ -1,12 +1,13 @@
-# scraper/core/playwright_scraper.py
+# app/scraper/core/playwright_scraper.py
 import asyncio
+import json
+import re
 from collections import deque
 from typing import Callable, Dict, List, Optional, Set
 from urllib.parse import urljoin, urlparse
-import json
-import re
-from playwright.async_api import async_playwright, Error as PlaywrightError # type: ignore
-from playwright.async_api import async_playwright # type: ignore
+
+from playwright.async_api import Error as PlaywrightError  # type: ignore
+from playwright.async_api import async_playwright  # type: ignore
 
 from scraper.core.storage import async_save_file, async_save_image, save_text
 from scraper.logging_config import get_logger
@@ -18,6 +19,7 @@ from .base import BaseScraper
 logger = get_logger(__name__)
 MAX_CONCURRENT_BROWSERS = 2
 _browser_semaphore = asyncio.Semaphore(MAX_CONCURRENT_BROWSERS)
+
 
 class PlaywrightScraper(BaseScraper):
     async def crawl(
@@ -68,7 +70,9 @@ class PlaywrightScraper(BaseScraper):
                         try:
                             logger.info("📝 Opening new page/tab in browser...")
                             page = await context.new_page()
-                            logger.info(f"🌍 Navigating to {url} (timeout=20000ms, wait_until='networkidle')...")
+                            logger.info(
+                                f"🌍 Navigating to {url} (timeout=20000ms, wait_until='networkidle')..."
+                            )
                             await page.goto(url, timeout=20000, wait_until="networkidle")
                             logger.info("⏱️ Waiting 2 seconds for page render...")
                             await asyncio.sleep(2)
@@ -92,20 +96,31 @@ class PlaywrightScraper(BaseScraper):
                             logger.info(f"📄 Found {len(file_urls)} file URLs (all).")
 
                             doc_exts = (
-                                ".pdf", ".docx", ".zip", ".pptx", ".xlsx", ".txt",
+                                ".pdf",
+                                ".docx",
+                                ".zip",
+                                ".pptx",
+                                ".xlsx",
+                                ".txt",
                             )
                             file_urls_filtered = [
                                 urljoin(url, f)
                                 for f in file_urls
                                 if f and f.lower().endswith(doc_exts)
                             ]
-                            logger.info(f"📄 Filtered {len(file_urls_filtered)} downloadable files.")
+                            logger.info(
+                                f"📄 Filtered {len(file_urls_filtered)} downloadable files."
+                            )
 
                             image_urls_filtered = [urljoin(url, i) for i in image_urls if i]
-                            logger.info(f"📄 Filtered {len(image_urls_filtered)} images for download.")
+                            logger.info(
+                                f"📄 Filtered {len(image_urls_filtered)} images for download."
+                            )
 
                             # --- Download images/files concurrently ---
-                            logger.info(f"⏬ Downloading images ({len(image_urls_filtered)}) and files ({len(file_urls_filtered)})...")
+                            logger.info(
+                                f"⏬ Downloading images ({len(image_urls_filtered)}) and files ({len(file_urls_filtered)})..."
+                            )
                             img_tasks = [
                                 async_save_image(domain, img_url, seen_images)
                                 for img_url in image_urls_filtered
@@ -119,7 +134,9 @@ class PlaywrightScraper(BaseScraper):
                             file_results = await asyncio.gather(*file_tasks, return_exceptions=True)
                             image_count += sum(1 for r in img_results if r is True)
                             file_count += sum(1 for r in file_results if r is True)
-                            logger.info(f"✅ Downloaded new images: {image_count}, new files: {file_count}")
+                            logger.info(
+                                f"✅ Downloaded new images: {image_count}, new files: {file_count}"
+                            )
 
                             logger.info("⏳ Throttling for random delay...")
                             await async_random_throttle()
@@ -161,4 +178,3 @@ class PlaywrightScraper(BaseScraper):
                     await context.close()
                     await browser.close()
                     logger.info("🛑 Crawl finished.")
-

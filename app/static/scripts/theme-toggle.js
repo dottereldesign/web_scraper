@@ -1,4 +1,4 @@
-// static/scripts/theme-toggle.js
+// app/static/scripts/theme-toggle.js
 (function () {
   const btn = document.getElementById("theme-toggle-btn");
   const body = document.body;

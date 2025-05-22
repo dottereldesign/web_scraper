@@ -1,4 +1,4 @@
-# scraper/core/storage.py
+# app/scraper/core/storage.py
 import asyncio
 from pathlib import Path
 from typing import Optional, Set
@@ -14,11 +14,13 @@ logger = get_logger(__name__)
 
 BASE_DIR = Path("extracted_data")  # Base storage directory
 
+
 def get_storage_path(domain: str, file_type: str = "text") -> Path:
     """Returns the correct path for storing extracted data."""
     folder_path = BASE_DIR / domain / file_type
     folder_path.mkdir(parents=True, exist_ok=True)
     return folder_path
+
 
 def safe_file_name_from_url(url: str) -> str:
     """
@@ -30,9 +32,11 @@ def safe_file_name_from_url(url: str) -> str:
     query_part = parsed.query
     if query_part:
         import hashlib
+
         qhash = hashlib.sha1(query_part.encode("utf-8")).hexdigest()[:8]
         path_part = f"{path_part}__{qhash}"
     return path_part
+
 
 def save_text(domain: str, url: str, text: str) -> None:
     """Save extracted text from a page. Consistent emoji and layout."""
@@ -40,6 +44,7 @@ def save_text(domain: str, url: str, text: str) -> None:
     file_path = get_storage_path(domain, "text") / f"{file_name}.txt"
     file_path.write_text(text, encoding="utf-8")
     logger.info(f"           📂 Saved page text: {file_path}")
+
 
 async def async_download_file(url: str, file_path: Path) -> bool:
     """Download a file asynchronously. Styled emoji logs for each outcome."""
@@ -67,6 +72,7 @@ async def async_download_file(url: str, file_path: Path) -> bool:
         logger.error(f"💥❌ Unexpected error downloading {url}: {e}")
     return False
 
+
 async def async_save_image(
     domain: str, img_url: str, seen_images: Optional[Set[str]] = None
 ) -> bool:
@@ -93,6 +99,7 @@ async def async_save_image(
     if seen_images is not None and success:
         seen_images.add(img_url)
     return success
+
 
 async def async_save_file(
     domain: str, file_url: str, seen_files: Optional[Set[str]] = None

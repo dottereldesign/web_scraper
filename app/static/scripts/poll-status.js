@@ -1,4 +1,4 @@
-// static/scripts/poll-status.js
+// app/static/scripts/poll-status.js
 document.addEventListener("DOMContentLoaded", function () {
   const taskId = window.TASK_ID; // We'll pass this via a script tag
   function pollStatus() {

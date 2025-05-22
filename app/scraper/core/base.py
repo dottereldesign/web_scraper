@@ -1,4 +1,4 @@
-# scraper/core/base.py
+# app/scraper/core/base.py
 from abc import ABC, abstractmethod
 from typing import Callable, Dict, Optional
 

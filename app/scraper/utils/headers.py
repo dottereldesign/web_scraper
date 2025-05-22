@@ -1,4 +1,4 @@
-# scraper/utils/headers.py
+# app/scraper/utils/headers.py
 import random
 from typing import Dict
 

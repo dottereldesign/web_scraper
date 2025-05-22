@@ -1,4 +1,4 @@
-# scraper/cli.py
+# app/scraper/cli.py
 import argparse
 import asyncio
 

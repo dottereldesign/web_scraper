@@ -1,4 +1,4 @@
-# scraper/utils/throttling.py
+# app/scraper/utils/throttling.py
 import asyncio
 import random
 import time

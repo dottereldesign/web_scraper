@@ -1,4 +1,4 @@
-# scraper/config.py
+# app/scraper/config.py
 import os
 
 from scraper.core.playwright_scraper import PlaywrightScraper

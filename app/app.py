@@ -1,4 +1,4 @@
-# app.py
+# app/app.py
 import logging
 
 logging.debug("Root debug log is visible.")
@@ -7,16 +7,15 @@ logging.warning("Root warning log is visible.")
 
 
 def set_werkzeug_log_format():
-    werkzeug_logger = logging.getLogger('werkzeug')
+    werkzeug_logger = logging.getLogger("werkzeug")
     handler = logging.StreamHandler()
-    formatter = logging.Formatter(
-        '%(asctime)s | %(levelname)s | %(name)s | %(message)s'
-    )
+    formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(name)s | %(message)s")
     handler.setFormatter(formatter)
     werkzeug_logger.handlers.clear()
     werkzeug_logger.addHandler(handler)
     werkzeug_logger.setLevel(logging.WARNING)
     werkzeug_logger.propagate = False
+
 
 set_werkzeug_log_format()
 
@@ -25,6 +24,7 @@ import os
 from threading import Lock, Thread
 from time import time
 from typing import Dict, List, Optional
+
 
 from dotenv import load_dotenv
 from flask import (
@@ -38,13 +38,12 @@ from flask import (
     session,
     url_for,
 )
+from llm.categorizer import categorize_text_with_llama3
+
 
 from scraper.config import SCRAPER_CLS
 from scraper.logging_config import get_logger
 from scraper.utils.url_utils import format_url, is_valid_url
-
-
-from llm_categorizer import categorize_text_with_llama3
 
 load_dotenv()
 SECRET_KEY: str = os.getenv("FLASK_SECRET", "fallback_secret_key")
@@ -57,13 +56,16 @@ RATE_LIMIT_SECONDS: int = 20
 crawl_status_store: Dict[str, str] = {}
 crawl_status_lock = Lock()
 
+
 def set_crawl_status(task_id: str, status: str):
     with crawl_status_lock:
         crawl_status_store[task_id] = status
 
+
 def get_crawl_status(task_id: str) -> Optional[str]:
     with crawl_status_lock:
         return crawl_status_store.get(task_id)
+
 
 def run_crawl(url: str, max_pages: int, task_id: str) -> None:
     try:
@@ -75,6 +77,7 @@ def run_crawl(url: str, max_pages: int, task_id: str) -> None:
         logger.error(f"❌ Crawl failed: {e}", exc_info=True)
         set_crawl_status(task_id, f"Error during crawl: {e}")
 
+
 def list_scraped_files(domain: str) -> Dict[str, List[Dict[str, str]]]:
     base_dir = os.path.join("extracted_data", domain)
     categories = {
@@ -84,8 +87,16 @@ def list_scraped_files(domain: str) -> Dict[str, List[Dict[str, str]]]:
     }
     img_exts = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
     doc_exts = {
-        ".pdf", ".doc", ".docx", ".ppt", ".pptx",
-        ".xls", ".xlsx", ".txt", ".zip", ".rar",
+        ".pdf",
+        ".doc",
+        ".docx",
+        ".ppt",
+        ".pptx",
+        ".xls",
+        ".xlsx",
+        ".txt",
+        ".zip",
+        ".rar",
     }
     for cat in ["images", "files"]:
         dir_path = os.path.join(base_dir, cat)
@@ -105,9 +116,11 @@ def list_scraped_files(domain: str) -> Dict[str, List[Dict[str, str]]]:
                     categories["others"].append(file_info)
     return categories
 
+
 @app.route("/extracted_data/<path:filename>")
 def extracted_data(filename):
     return send_from_directory("extracted_data", filename)
+
 
 @app.route("/status/<task_id>")
 def crawl_status_api(task_id):
@@ -133,6 +146,7 @@ def crawl_status_api(task_id):
     progress["percent"] = percent
     return jsonify({"status": status, "finished": finished, "progress": progress})
 
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     error = None
@@ -140,7 +154,7 @@ def index():
     extracted_text = None
     task_id = None
     scraped_files = {}
-    categorized = None   # NEW
+    categorized = None  # NEW
 
     if request.method == "POST":
         url = request.form.get("url", "").strip()
@@ -198,7 +212,10 @@ def index():
                     # --- Categorize with Llama 3
                     try:
                         categorized = categorize_text_with_llama3(extracted_text)
-                        logger.info("🧩 Categorized LLM result keys: %s", list(categorized.keys()) if categorized else "None")
+                        logger.info(
+                            "🧩 Categorized LLM result keys: %s",
+                            list(categorized.keys()) if categorized else "None",
+                        )
                         logger.info("🧩 Categorized LLM result: %s", repr(categorized)[:1000])
 
                     except Exception as e:
@@ -223,8 +240,9 @@ def index():
         text=extracted_text,
         scraped_files=scraped_files,
         task_id=task_id,
-        categorized=categorized,   # NEW
+        categorized=categorized,  # NEW
     )
+
 
 if __name__ == "__main__":
     app.run(debug=True)
